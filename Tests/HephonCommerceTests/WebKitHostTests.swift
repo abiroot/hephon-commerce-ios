@@ -38,30 +38,19 @@ final class WebKitHostTests: XCTestCase {
             """,
             baseURL: controller.url
         )
-        await until { events.count == 2 }
+        await untilWebKit { events.count == 2 }
         XCTAssertEqual(events, ["ready", "echo focus"])
         XCTAssertEqual(controller.pageState, .loaded)
 
         controller.dispose()
         var bridge: String?
         evaluate("typeof window.webkit?.messageHandlers?.HephonBridge", in: webView) { bridge = $0 }
-        await until { bridge != nil }
+        await untilWebKit { bridge != nil }
         XCTAssertEqual(bridge, "undefined")
     }
 
     /// The completion-handler form: the async one traps when a script returns nothing.
     private func evaluate(_ script: String, in webView: WKWebView, done: @escaping @MainActor (String?) -> Void) {
         webView.evaluateJavaScript(script) { result, _ in done(result as? String) }
-    }
-
-    /// Waits for WebKit, which answers from another process. Up to two minutes: its first launch
-    /// on a simulator that has just booted (CI) takes more than twenty seconds.
-    private func until(
-        _ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line
-    ) async {
-        for _ in 0 ..< 2400 where !condition() {
-            try? await Task.sleep(nanoseconds: 50_000_000)
-        }
-        XCTAssertTrue(condition(), "timed out", file: file, line: line)
     }
 }

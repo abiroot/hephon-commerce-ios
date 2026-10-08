@@ -109,9 +109,8 @@ final class WebKitHost: NSObject, WebViewDriving, WKNavigationDelegate, WKUIDele
         controller?.didFailLoading(error)
     }
 
-    /// iOS ended the page's process (memory pressure): load the chat again.
     func webViewWebContentProcessDidTerminate(_: WKWebView) {
-        controller?.reload()
+        controller?.didTerminate()
     }
 
     // MARK: WKUIDelegate

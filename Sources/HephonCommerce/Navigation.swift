@@ -65,6 +65,29 @@ public enum HephonNavigation: String, Sendable {
         return "\(scheme)://\(host.lowercased())\(suffix)"
     }
 
+    /// `url` for a load after the first one: without the launch token or code it came with (each
+    /// works once, and the page keeps its session), and in `store` when it names none, because
+    /// the page keeps its session per store. `launchToken` is a fresh token to launch with instead.
+    static func relaunchURL(_ url: URL, store: String = "", launchToken: String? = nil) -> URL {
+        guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url
+        }
+        var query = (parts.percentEncodedQuery ?? "").split(separator: "&").map(String.init)
+            .filter { !["lt", "code"].contains(name(of: $0)) }
+        if let launchToken {
+            query.insert("lt=\(queryValue(launchToken))", at: 0)
+        } else if !store.isEmpty, !query.contains(where: { name(of: $0) == "store" }) {
+            query.append("store=\(queryValue(store))")
+        }
+        parts.percentEncodedQuery = query.isEmpty ? nil : query.joined(separator: "&")
+        parts.fragment = nil
+        return parts.url ?? url
+    }
+
+    private static func name(of pair: String) -> Substring {
+        pair.prefix { $0 != "=" }
+    }
+
     /// Links a shopper can tap that open outside the app from any frame.
     private static let linkSchemes: Set<String> = ["https", "http", "tel", "mailto"]
 
@@ -76,4 +99,14 @@ public enum HephonNavigation: String, Sendable {
         }
         return path == root || path.hasPrefix("\(root)/")
     }
+}
+
+/// RFC 3986's unreserved characters, the only ones a query value keeps as they are.
+private let unreserved = CharacterSet(
+    charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+)
+
+/// `value` with everything but the unreserved characters percent-encoded (`+` and `/` too).
+func queryValue(_ value: String) -> String {
+    value.addingPercentEncoding(withAllowedCharacters: unreserved) ?? value
 }

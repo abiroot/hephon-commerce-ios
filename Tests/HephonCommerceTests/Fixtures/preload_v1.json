@@ -1,0 +1,130 @@
+{
+	"$comment": "Additive bridge v1 messages and URL rules since SDK 1.1.0 (SDK-PRELOAD.md).",
+	"pageToHost": [
+		{
+			"v": 1,
+			"id": "painted:1791374400000",
+			"type": "painted",
+			"ts": 1791374400300,
+			"data": {}
+		},
+		{
+			"v": 1,
+			"id": "d0c6f0d2-0001",
+			"type": "timing",
+			"ts": 1791374403000,
+			"data": {
+				"navigationStart": 1791374400000,
+				"responseStart": 160,
+				"firstPaint": 290,
+				"bridgeReady": 760,
+				"interactive": 740,
+				"open": 85,
+				"preloaded": true
+			}
+		},
+		{
+			"v": 1,
+			"id": "d0c6f0d2-0002",
+			"type": "timing",
+			"ts": 1791374409100,
+			"data": {
+				"navigationStart": 1791374400000,
+				"responseStart": 160,
+				"firstPaint": 290,
+				"bridgeReady": 760,
+				"interactive": 740,
+				"open": 40,
+				"preloaded": true
+			}
+		},
+		{
+			"v": 1,
+			"id": "d0c6f0d2-0003",
+			"type": "timing",
+			"ts": 1791374403000,
+			"data": {
+				"navigationStart": 1791374400000,
+				"firstPaint": 290,
+				"bridgeReady": 760,
+				"interactive": 740,
+				"preloaded": true
+			}
+		},
+		{
+			"v": 1,
+			"id": "d0c6f0d2-0004",
+			"type": "timing",
+			"ts": 1791374403000,
+			"data": {
+				"navigationStart": 1791374400000,
+				"firstPaint": 940,
+				"bridgeReady": 2905,
+				"interactive": 2494,
+				"preloaded": false
+			}
+		},
+		{
+			"v": 1,
+			"id": "d0c6f0d2-0005",
+			"type": "ready",
+			"ts": 1791374400760,
+			"data": {
+				"orgSlug": "suppy-demo",
+				"storeId": "branch-7",
+				"capabilities": [
+					"cart.snapshot",
+					"session.launch",
+					"theme",
+					"focus",
+					"visibility"
+				]
+			}
+		}
+	],
+	"hostToPage": [
+		{
+			"v": 1,
+			"id": "e0c6f0d2-0001",
+			"type": "visibility",
+			"ts": 1791374402915,
+			"data": { "shown": true, "at": 1791374402915 }
+		},
+		{
+			"v": 1,
+			"id": "e0c6f0d2-0002",
+			"type": "visibility",
+			"ts": 1791374405000,
+			"data": { "shown": true }
+		},
+		{
+			"v": 1,
+			"id": "e0c6f0d2-0003",
+			"type": "visibility",
+			"ts": 1791374409000,
+			"data": { "shown": false }
+		}
+	],
+	"relaunchUrl": [
+		{
+			"url": "https://commerce.hephon.ai/c/suppy?code=abc&embed=ios&sdk=1.1.0&locale=ar",
+			"store": "branch-7",
+			"expect": "https://commerce.hephon.ai/c/suppy?embed=ios&sdk=1.1.0&locale=ar&store=branch-7"
+		},
+		{
+			"url": "https://commerce.hephon.ai/c/suppy?lt=a.b.c&embed=flutter&sdk=1.1.0",
+			"store": "",
+			"expect": "https://commerce.hephon.ai/c/suppy?embed=flutter&sdk=1.1.0"
+		},
+		{
+			"url": "https://commerce.hephon.ai/c/suppy?store=s1&embed=android&sdk=1.1.0",
+			"store": "s2",
+			"expect": "https://commerce.hephon.ai/c/suppy?store=s1&embed=android&sdk=1.1.0"
+		},
+		{
+			"url": "https://commerce.hephon.ai/c/suppy?lt=a.b.c&store=s1&embed=react-native&sdk=1.1.0",
+			"store": "s1",
+			"expect": "https://commerce.hephon.ai/c/suppy?store=s1&embed=react-native&sdk=1.1.0"
+		}
+	]
+}

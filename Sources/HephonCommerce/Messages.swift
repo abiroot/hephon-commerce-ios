@@ -3,8 +3,8 @@ import Foundation
 /// Bridge envelope v1: the messages the Hephon chat page and your app exchange. Every message
 /// is `{v: 1, id, type, ts, data}`; `id` is the idempotency key (events arrive at least once).
 ///
-/// Mirrors the `@repo/embed` schemas. `Tests/HephonCommerceTests/Fixtures/bridge_v1.json` is
-/// the shared contract both sides are tested against.
+/// Mirrors the `@repo/embed` schemas. `Tests/HephonCommerceTests/Fixtures/bridge_v1.json` and
+/// `preload_v1.json` are the shared contract both sides are tested against.
 public let hephonBridgeVersion = 1
 
 /// Who changed the cart.
@@ -97,6 +97,15 @@ public struct OpenProduct: Sendable, Decodable, Equatable {
     public let storeId: String
 }
 
+/// How long the chat took to open, for `HephonAgentController.onTiming`.
+public struct HephonOpenTiming: Sendable, Decodable, Equatable {
+    /// Milliseconds from the moment the view began to appear until the chat was usable and on
+    /// screen. Nil when the page could not confirm a frame was drawn.
+    public let open: Int?
+    /// The chat was already loaded when it was shown (`preload()`, or a reopen).
+    public let preloaded: Bool
+}
+
 /// How a cart line changed: `cart.item_added`, `cart.item_updated` or `cart.item_removed`.
 public enum CartChange: Sendable, Equatable {
     case added, updated, removed
@@ -127,6 +136,29 @@ public enum PageMessage: Sendable, Equatable {
     /// The message in `json`, or nil when it is not a valid v1 message. Other versions,
     /// unknown types and payloads of the wrong shape are ignored, never guessed at.
     public static func parse(_ json: String) -> Envelope? {
+        guard let page = PageEvent.parse(json), case let .message(message) = page.event else {
+            return nil
+        }
+        return Envelope(id: page.id, timestamp: page.timestamp, message: message)
+    }
+}
+
+/// Everything the chat page sends. The messages added since 1.0.0 are cases here and not in
+/// `PageMessage`, so a `switch` over `PageMessage` written for 1.0.0 still compiles.
+enum PageEvent: Sendable, Equatable {
+    case message(PageMessage)
+    /// The chat is drawn, before it is ready: the loading indicator can go. Since 1.1.0.
+    case painted
+    /// The chat became usable after being shown. Since 1.1.0.
+    case timing(HephonOpenTiming)
+
+    struct Envelope: Sendable, Equatable {
+        let id: String
+        let timestamp: Date
+        let event: PageEvent
+    }
+
+    static func parse(_ json: String) -> Envelope? {
         let bytes = Data(json.utf8)
         let decoder = JSONDecoder()
         guard
@@ -139,7 +171,8 @@ public enum PageMessage: Sendable, Equatable {
         func data<T: Decodable>(_: T.Type) -> T? {
             try? decoder.decode(Payload<T>.self, from: bytes).data
         }
-        let message: PageMessage?
+        var message: PageMessage?
+        var event: PageEvent?
         switch header.type {
         case "ready": message = data(HephonReady.self).map(PageMessage.ready)
         case "cart.item_added": message = data(CartItemEvent.self).map { .cartItem(.added, $0) }
@@ -153,13 +186,16 @@ public enum PageMessage: Sendable, Equatable {
         case "resize":
             message = data(Resize.self).flatMap { $0.height >= 0 ? .resize(height: $0.height) : nil }
         case "close": message = .close
-        default: message = nil
+        case "painted": event = .painted
+        case "timing":
+            event = data(HephonOpenTiming.self).flatMap { ($0.open ?? 0) >= 0 ? .timing($0) : nil }
+        default: break
         }
-        return message.map {
+        return (event ?? message.map(PageEvent.message)).map {
             Envelope(
                 id: header.id,
                 timestamp: Date(timeIntervalSince1970: TimeInterval(header.ts) / 1000),
-                message: $0
+                event: $0
             )
         }
     }
@@ -226,6 +262,7 @@ public struct HostMessage: Sendable, Equatable {
         case sessionLaunch(String)
         case theme(HephonScheme)
         case focus
+        case visibility(shown: Bool, at: Int64?)
     }
 
     private init(_ type: String, _ data: Body, id: String?, timestamp: Date?) {
@@ -262,13 +299,21 @@ public struct HostMessage: Sendable, Equatable {
         HostMessage("focus", .focus, id: id, timestamp: timestamp)
     }
 
+    /// Whether the chat is on screen. `at` is when the view began to appear, sent once per show:
+    /// the page measures the open from it. `HephonAgentController` sends these itself.
+    public static func visibility(
+        _ shown: Bool, at: Date? = nil, id: String? = nil, timestamp: Date? = nil
+    ) -> HostMessage {
+        HostMessage("visibility", .visibility(shown: shown, at: at.map(milliseconds)), id: id, timestamp: timestamp)
+    }
+
     /// The envelope as JSON text, what the page's `window.hephon.receive` takes.
     public func json() -> String {
         let envelope = Outgoing(
             v: hephonBridgeVersion,
             id: id,
             type: type,
-            ts: Int64((timestamp.timeIntervalSince1970 * 1000).rounded()),
+            ts: milliseconds(timestamp),
             data: data
         )
         let encoder = JSONEncoder()
@@ -276,6 +321,11 @@ public struct HostMessage: Sendable, Equatable {
         // Strings, integers and arrays of them always encode.
         return String(decoding: try! encoder.encode(envelope), as: UTF8.self)
     }
+}
+
+/// `date` in whole milliseconds since 1970, the bridge's clock.
+private func milliseconds(_ date: Date) -> Int64 {
+    Int64((date.timeIntervalSince1970 * 1000).rounded())
 }
 
 private struct Outgoing: Encodable {
@@ -288,7 +338,7 @@ private struct Outgoing: Encodable {
 
 extension HostMessage.Body: Encodable {
     private enum Keys: String, CodingKey {
-        case items, launchToken, scheme
+        case items, launchToken, scheme, shown, at
     }
 
     func encode(to encoder: Encoder) throws {
@@ -298,6 +348,9 @@ extension HostMessage.Body: Encodable {
         case let .sessionLaunch(token): try container.encode(token, forKey: .launchToken)
         case let .theme(scheme): try container.encode(scheme, forKey: .scheme)
         case .focus: break
+        case let .visibility(shown, at):
+            try container.encode(shown, forKey: .shown)
+            try container.encodeIfPresent(at, forKey: .at)
         }
     }
 }

@@ -8,7 +8,8 @@ import WebKit
 ///
 ///     presenter.present(HephonAgentViewController(controller: controller), animated: true)
 ///
-/// Dismissing it (or removing it from its parent) disposes the controller.
+/// Dismissing it (or removing it from its parent) hides the chat when `preload()` was called on
+/// the controller, so the next open is immediate. Otherwise it disposes the controller.
 @MainActor
 public final class HephonAgentViewController: UIViewController {
     public let controller: HephonAgentController
@@ -16,6 +17,7 @@ public final class HephonAgentViewController: UIViewController {
     private let loading = UIActivityIndicatorView(style: .large)
     private let failed = UIStackView()
     private var state: AnyCancellable?
+    private weak var webView: WKWebView?
 
     public init(controller: HephonAgentController) {
         self.controller = controller
@@ -37,11 +39,6 @@ public final class HephonAgentViewController: UIViewController {
     override public func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
-
-        let webView = controller.webView()
-        webView.isOpaque = false
-        webView.backgroundColor = .systemBackground
-        fill(webView)
 
         let overlay = UIView()
         overlay.backgroundColor = .systemBackground
@@ -65,16 +62,56 @@ public final class HephonAgentViewController: UIViewController {
         }
     }
 
+    /// The open is timed from here. The web view is the controller's: it may have been loaded
+    /// ahead of this view, and a released chat comes back in a new one.
+    override public func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        controller.viewShown(by: self, at: Date())
+        let webView = controller.webView()
+        guard webView.superview !== view else {
+            return
+        }
+        self.webView = webView
+        webView.isOpaque = false
+        webView.backgroundColor = .systemBackground
+        fill(webView, at: 0)
+    }
+
     override public func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
-        if isBeingDismissed || isMovingFromParent || navigationController?.isBeingDismissed == true {
-            controller.dispose()
+        if isBeingDismissed || isMovingFromParent || navigationController?.isBeingDismissed == true
+            || (controller.kept && isInsideAViewThatIsGoing)
+        {
+            leave()
         }
     }
 
-    private func fill(_ child: UIView) {
+    /// A container this view is in (your own wrapper, a navigation or tab bar controller, at
+    /// any depth) is dismissed or removed, as opposed to covered. Only a kept chat asks: it
+    /// outlives the view, so it has to hear that it is hidden. In 1.0.0 a chat in such a
+    /// container was not disposed there, and still is not.
+    private var isInsideAViewThatIsGoing: Bool {
+        var ancestor = parent
+        while let container = ancestor {
+            if container.isBeingDismissed || container.isMovingFromParent {
+                return true
+            }
+            ancestor = container.parent
+        }
+        return false
+    }
+
+    /// The view is gone. A kept chat stays loaded in its web view, outside any window.
+    fileprivate func leave() {
+        controller.viewDismissed(by: self)
+        if webView?.superview === view {
+            webView?.removeFromSuperview()
+        }
+    }
+
+    private func fill(_ child: UIView, at index: Int? = nil) {
         child.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(child)
+        view.insertSubview(child, at: index ?? view.subviews.count)
         NSLayoutConstraint.activate([
             child.topAnchor.constraint(equalTo: view.topAnchor),
             child.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -120,7 +157,8 @@ public final class HephonAgentViewController: UIViewController {
 ///
 ///     .sheet(isPresented: $open) { HephonAgentView(controller: controller) }
 ///
-/// Leaving the view disposes the controller: make a new one for the next open.
+/// Leaving the view hides the chat when `preload()` was called on the controller, and disposes
+/// the controller otherwise.
 public struct HephonAgentView: UIViewControllerRepresentable {
     public let controller: HephonAgentController
 
@@ -135,6 +173,6 @@ public struct HephonAgentView: UIViewControllerRepresentable {
     public func updateUIViewController(_: HephonAgentViewController, context _: Context) {}
 
     public static func dismantleUIViewController(_ viewController: HephonAgentViewController, coordinator _: Void) {
-        viewController.controller.dispose()
+        viewController.leave()
     }
 }

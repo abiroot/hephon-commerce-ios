@@ -417,22 +417,4 @@ final class ControllerTests: XCTestCase {
         await settle()
         XCTAssertEqual(asked, 1)
     }
-
-    // MARK: - Waiting for the controller's tasks
-
-    /// Lets every queued main-actor task run.
-    private func settle() async {
-        for _ in 0 ..< 50 {
-            await Task.yield()
-        }
-    }
-
-    private func until(
-        _ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line
-    ) async {
-        for _ in 0 ..< 2000 where !condition() {
-            await Task.yield()
-        }
-        XCTAssertTrue(condition(), "timed out", file: file, line: line)
-    }
 }
