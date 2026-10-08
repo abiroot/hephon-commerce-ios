@@ -1,0 +1,305 @@
+{
+	"$comment": "Host-side contract every native SDK implements (docs/integrations/SDKS.md 2.2): which navigations the chat webview allows, opens outside the app or blocks; how an origin is normalized; and the chat URL it opens. Canonical copy: packages/embed/fixtures/host_v1.json, checked for consistency by packages/embed/src/__tests__/host-contract.test.ts. Every SDK keeps a byte-identical copy (scripts/check-sdk-fixtures.ts). chatUrl.expect is compared as origin, path and an unordered set of decoded query pairs; \"error\" means the SDK refuses the input. Keys starting with $ are comments.",
+	"navigation": {
+		"$comment": "decideNavigation(url, isMainFrame, allowedOrigins, chatPath). allow: load in the webview. openExternally: hand to the platform (browser, dialer, mail, app). block: refuse.",
+		"allowedOrigins": [
+			"https://commerce.hephon.ai",
+			"https://chat.suppy.app"
+		],
+		"chatPath": "/c/suppy",
+		"cases": [
+			{
+				"url": "https://commerce.hephon.ai/c/suppy?embed=flutter",
+				"isMainFrame": true,
+				"expect": "allow",
+				"$comment": "The chat on the Hephon host."
+			},
+			{
+				"url": "https://COMMERCE.hephon.ai:443/c/suppy",
+				"isMainFrame": true,
+				"expect": "allow",
+				"$comment": "Host case and the default port do not matter."
+			},
+			{
+				"url": "https://chat.suppy.app/c/suppy",
+				"isMainFrame": true,
+				"expect": "allow",
+				"$comment": "The chat on the retailer's custom domain."
+			},
+			{
+				"url": "https://chat.suppy.app/c/suppy/?view=support",
+				"isMainFrame": true,
+				"expect": "allow",
+				"$comment": "A path below the chat, ignoring a trailing slash."
+			},
+			{
+				"url": "about:blank",
+				"isMainFrame": true,
+				"expect": "allow",
+				"$comment": "What dispose loads."
+			},
+			{
+				"url": "about:blank",
+				"isMainFrame": false,
+				"expect": "allow"
+			},
+			{
+				"url": "https://commerce.hephon.ai/legal/privacy",
+				"isMainFrame": true,
+				"expect": "openExternally",
+				"$comment": "The chat footer's Privacy link: same host, not the chat, so it would replace the chat with no way back."
+			},
+			{
+				"url": "https://chat.suppy.app/legal/privacy",
+				"isMainFrame": false,
+				"expect": "openExternally"
+			},
+			{
+				"url": "https://commerce.hephon.ai/app",
+				"isMainFrame": true,
+				"expect": "openExternally"
+			},
+			{
+				"url": "https://commerce.hephon.ai/",
+				"isMainFrame": true,
+				"expect": "openExternally"
+			},
+			{
+				"url": "https://commerce.hephon.ai/c/noknok",
+				"isMainFrame": true,
+				"expect": "openExternally",
+				"$comment": "Another retailer's chat."
+			},
+			{
+				"url": "https://commerce.hephon.ai/c/suppy-other",
+				"isMainFrame": true,
+				"expect": "openExternally",
+				"$comment": "A path that only starts like the chat path."
+			},
+			{
+				"url": "https://www.suppy.app/product/48213",
+				"isMainFrame": true,
+				"expect": "openExternally"
+			},
+			{
+				"url": "tel:+9611234567",
+				"isMainFrame": true,
+				"expect": "openExternally"
+			},
+			{
+				"url": "mailto:help@suppy.app",
+				"isMainFrame": true,
+				"expect": "openExternally"
+			},
+			{
+				"url": "https://commerce.hephon.ai.evil.com/c/suppy",
+				"isMainFrame": true,
+				"expect": "openExternally",
+				"$comment": "Look-alike host."
+			},
+			{
+				"url": "http://commerce.hephon.ai/c/suppy",
+				"isMainFrame": true,
+				"expect": "openExternally",
+				"$comment": "Same host, other scheme: another origin."
+			},
+			{
+				"url": "https://commerce.hephon.ai:8443/c/suppy",
+				"isMainFrame": true,
+				"expect": "openExternally",
+				"$comment": "Same host, other port: another origin."
+			},
+			{
+				"url": "intent://scan/#Intent;scheme=zxing;end",
+				"isMainFrame": true,
+				"expect": "openExternally",
+				"$comment": "A main-frame tap on an app link the platform opens."
+			},
+			{
+				"url": "https://www.suppy.app/privacy",
+				"isMainFrame": false,
+				"expect": "openExternally",
+				"$comment": "target=_blank: iOS reports a new-window link as not the main frame; Android (multiple windows off) delivers it as a main-frame navigation with the same result."
+			},
+			{
+				"url": "https://hephon.ai",
+				"isMainFrame": false,
+				"expect": "openExternally"
+			},
+			{
+				"url": "mailto:help@suppy.app",
+				"isMainFrame": false,
+				"expect": "openExternally"
+			},
+			{
+				"url": "https://chat.suppy.app/c/suppy",
+				"isMainFrame": false,
+				"expect": "openExternally",
+				"$comment": "A new window never replaces the chat, even with the chat's own URL."
+			},
+			{
+				"url": "https://evil.example/c/suppy",
+				"isMainFrame": false,
+				"expect": "openExternally"
+			},
+			{
+				"url": "https://commerce.hephon.ai/legal/privacy",
+				"isMainFrame": false,
+				"expect": "openExternally"
+			},
+			{
+				"url": "intent://scan/#Intent;scheme=zxing;end",
+				"isMainFrame": false,
+				"expect": "block",
+				"$comment": "A frame loading something that is not a web, tel: or mailto: link."
+			},
+			{
+				"url": "javascript:alert(1)",
+				"isMainFrame": false,
+				"expect": "block"
+			},
+			{
+				"url": "javascript:alert(1)",
+				"isMainFrame": true,
+				"expect": "block"
+			},
+			{
+				"url": "data:text/html,<p>hi</p>",
+				"isMainFrame": true,
+				"expect": "block"
+			},
+			{
+				"url": "data:text/html,<p>hi</p>",
+				"isMainFrame": false,
+				"expect": "block"
+			}
+		]
+	},
+	"origins": [
+		{
+			"url": "https://Commerce.Hephon.ai:443/x?y",
+			"expect": "https://commerce.hephon.ai"
+		},
+		{
+			"url": "https://COMMERCE.hephon.ai:443/c/x",
+			"expect": "https://commerce.hephon.ai"
+		},
+		{
+			"url": "https://commerce.hephon.ai/c/suppy?embed=ios#top",
+			"expect": "https://commerce.hephon.ai"
+		},
+		{
+			"url": "http://10.0.2.2:3051/c/x",
+			"expect": "http://10.0.2.2:3051",
+			"$comment": "The Android emulator's address for the dev server."
+		},
+		{
+			"url": "http://localhost:80/c/x",
+			"expect": "http://localhost"
+		},
+		{
+			"url": "https://chat.suppy.app:8443/c/x",
+			"expect": "https://chat.suppy.app:8443"
+		},
+		{
+			"url": "http://example.com:443/",
+			"expect": "http://example.com:443",
+			"$comment": "443 is the default port of https only."
+		},
+		{
+			"url": "tel:123",
+			"expect": null
+		},
+		{
+			"url": "mailto:help@suppy.app",
+			"expect": null
+		},
+		{
+			"url": "about:blank",
+			"expect": null
+		},
+		{
+			"url": "javascript:alert(1)",
+			"expect": null
+		},
+		{
+			"url": "data:text/html,<p>hi</p>",
+			"expect": null
+		},
+		{
+			"url": "ftp://x.y",
+			"expect": null
+		}
+	],
+	"chatUrl": [
+		{
+			"host": "https://commerce.hephon.ai/",
+			"organization": "suppy",
+			"launchCode": "abc",
+			"store": "s1",
+			"embed": "ios",
+			"sdk": "1.0.0",
+			"locale": "ar",
+			"expect": "https://commerce.hephon.ai/c/suppy?code=abc&embed=ios&sdk=1.0.0&locale=ar",
+			"$comment": "A store is dropped with a launch code: the session already has its store."
+		},
+		{
+			"host": "https://commerce.hephon.ai",
+			"organization": "suppy-demo",
+			"launchToken": "token-1",
+			"store": "branch-7",
+			"embed": "flutter",
+			"sdk": "1.0.0",
+			"locale": "ar",
+			"expect": "https://commerce.hephon.ai/c/suppy-demo?lt=token-1&embed=flutter&sdk=1.0.0&locale=ar",
+			"$comment": "A store is dropped with a launch token: the token names the store."
+		},
+		{
+			"host": "https://chat.suppy.app/",
+			"organization": "suppy-demo",
+			"launchCode": "abc",
+			"store": "ignored-with-a-code",
+			"embed": "flutter",
+			"sdk": "1.0.0",
+			"expect": "https://chat.suppy.app/c/suppy-demo?code=abc&embed=flutter&sdk=1.0.0",
+			"$comment": "A trailing slash on the host is not doubled."
+		},
+		{
+			"host": "https://chat.suppy.app/",
+			"organization": "suppy-demo",
+			"store": "branch-7",
+			"embed": "react-native",
+			"sdk": "1.2.0",
+			"expect": "https://chat.suppy.app/c/suppy-demo?store=branch-7&embed=react-native&sdk=1.2.0",
+			"$comment": "Anonymous: the store is a hint for the new session."
+		},
+		{
+			"host": "https://commerce.hephon.ai",
+			"organization": "suppy",
+			"embed": "android",
+			"sdk": "1.0.0",
+			"expect": "https://commerce.hephon.ai/c/suppy?embed=android&sdk=1.0.0",
+			"$comment": "Anonymous without a store or locale: the agent's default store."
+		},
+		{
+			"host": "http://10.0.2.2:3051",
+			"organization": "suppy",
+			"store": "Branch 7/A",
+			"embed": "android",
+			"sdk": "1.0.0",
+			"locale": "en-US",
+			"expect": "http://10.0.2.2:3051/c/suppy?store=Branch+7%2FA&embed=android&sdk=1.0.0&locale=en-US",
+			"$comment": "Values are query-encoded; compare decoded pairs."
+		},
+		{
+			"host": "https://commerce.hephon.ai",
+			"organization": "suppy",
+			"launchToken": "token-1",
+			"launchCode": "abc",
+			"embed": "ios",
+			"sdk": "1.0.0",
+			"expect": "error",
+			"$comment": "A launch is one value: a token and a code together are refused before anything loads."
+		}
+	]
+}

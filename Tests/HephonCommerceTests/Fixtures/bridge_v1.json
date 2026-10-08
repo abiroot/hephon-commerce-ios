@@ -1,0 +1,259 @@
+{
+	"$comment": "Bridge envelope v1 contract (ARCHITECTURE.md ADR-5.4). Canonical copy: packages/embed/fixtures/bridge_v1.json, checked against the zod schemas by packages/embed/src/__tests__/bridge-contract.test.ts. Every SDK keeps a byte-identical copy that its own tests parse with its models (scripts/check-sdk-fixtures.ts). Every message type appears at least once.",
+	"pageToHost": [
+		{
+			"v": 1,
+			"id": "a0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c01",
+			"type": "ready",
+			"ts": 1791374400000,
+			"data": {
+				"orgSlug": "suppy-demo",
+				"storeId": "branch-7",
+				"conversationId": "cm1conversation0001",
+				"hostSessionId": "host-session-42",
+				"capabilities": [
+					"cart.snapshot",
+					"session.launch",
+					"theme",
+					"focus"
+				]
+			}
+		},
+		{
+			"v": 1,
+			"id": "a0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c02",
+			"type": "ready",
+			"ts": 1791374400000,
+			"data": {
+				"orgSlug": "suppy-demo",
+				"storeId": "branch-7",
+				"capabilities": []
+			}
+		},
+		{
+			"v": 1,
+			"id": "msg_cm1event0001",
+			"type": "cart.item_added",
+			"ts": 1791374401000,
+			"data": {
+				"storeId": "branch-7",
+				"conversationId": "cm1conversation0001",
+				"origin": "agent",
+				"item": {
+					"itemId": "48213",
+					"quantity": 2,
+					"previousQuantity": 0,
+					"unitPrice": "1.50",
+					"currency": "USD",
+					"title": "Fresh Milk 1L",
+					"substitution": "SIMILAR"
+				}
+			}
+		},
+		{
+			"v": 1,
+			"id": "msg_cm1event0002",
+			"type": "cart.item_updated",
+			"ts": 1791374402000,
+			"data": {
+				"storeId": "branch-7",
+				"conversationId": "cm1conversation0001",
+				"origin": "shopper",
+				"item": {
+					"itemId": "48213",
+					"quantity": 3,
+					"previousQuantity": 2,
+					"unitPrice": "1.50",
+					"currency": "USD",
+					"title": "Fresh Milk 1L",
+					"substitution": "SPECIFIC",
+					"substituteItemId": "48214"
+				}
+			}
+		},
+		{
+			"v": 1,
+			"id": "msg_cm1event0003",
+			"type": "cart.item_removed",
+			"ts": 1791374403000,
+			"data": {
+				"storeId": "branch-7",
+				"conversationId": "cm1conversation0001",
+				"origin": "host",
+				"item": {
+					"itemId": "48213",
+					"quantity": 0,
+					"previousQuantity": 3,
+					"unitPrice": "1.50",
+					"currency": "USD",
+					"title": "Fresh Milk 1L"
+				}
+			}
+		},
+		{
+			"v": 1,
+			"id": "msg_cm1event0004",
+			"type": "cart.cleared",
+			"ts": 1791374404000,
+			"data": {
+				"storeId": "branch-7",
+				"conversationId": "cm1conversation0001",
+				"removed": [
+					{
+						"itemId": "51007",
+						"quantity": 0,
+						"previousQuantity": 1,
+						"unitPrice": "0.90",
+						"currency": "USD",
+						"title": "Arabic Bread 6 pieces"
+					},
+					{
+						"itemId": "60321",
+						"quantity": 0,
+						"previousQuantity": 2,
+						"unitPrice": "8.75",
+						"currency": "USD",
+						"title": "Extra Virgin Olive Oil 750ml",
+						"substitution": "NONE"
+					}
+				]
+			}
+		},
+		{
+			"v": 1,
+			"id": "msg_cm1event0005",
+			"type": "checkout",
+			"ts": 1791374405000,
+			"data": {
+				"storeId": "branch-7",
+				"currency": "USD",
+				"total": "21.25",
+				"conversationId": "cm1conversation0001",
+				"externalShopperId": "u-991",
+				"hostSessionId": "host-session-42",
+				"items": [
+					{ "itemId": "48213", "quantity": 2, "unitPrice": "1.50" },
+					{
+						"itemId": "60321",
+						"quantity": 2,
+						"unitPrice": "8.75",
+						"substitution": "SPECIFIC",
+						"substituteItemId": "60322"
+					}
+				]
+			}
+		},
+		{
+			"v": 1,
+			"id": "a0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c08",
+			"type": "handoff",
+			"ts": 1791374406000,
+			"data": {
+				"conversationId": "cm1conversation0001",
+				"reason": "Asked for a person"
+			}
+		},
+		{
+			"v": 1,
+			"id": "a0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c09",
+			"type": "open_product",
+			"ts": 1791374407000,
+			"data": { "itemId": "48213", "storeId": "branch-7" }
+		},
+		{
+			"v": 1,
+			"id": "a0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c10",
+			"type": "session.expired",
+			"ts": 1791374408000,
+			"data": {}
+		},
+		{
+			"v": 1,
+			"id": "a0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c11",
+			"type": "resize",
+			"ts": 1791374409000,
+			"data": { "height": 640 }
+		},
+		{
+			"v": 1,
+			"id": "a0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c12",
+			"type": "close",
+			"ts": 1791374410000,
+			"data": {}
+		}
+	],
+	"hostToPage": [
+		{
+			"v": 1,
+			"id": "b0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c01",
+			"type": "cart.snapshot",
+			"ts": 1791374411000,
+			"data": {
+				"items": [
+					{ "itemId": "48213", "quantity": 2 },
+					{ "itemId": "51007", "quantity": 0 }
+				]
+			}
+		},
+		{
+			"v": 1,
+			"id": "b0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c02",
+			"type": "session.launch",
+			"ts": 1791374412000,
+			"data": {
+				"launchToken": "eyJhbGciOiJFZERTQSJ9.eyJpc3MiOiJzdXBweSJ9.c2ln"
+			}
+		},
+		{
+			"v": 1,
+			"id": "b0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c03",
+			"type": "theme",
+			"ts": 1791374413000,
+			"data": { "scheme": "dark" }
+		},
+		{
+			"v": 1,
+			"id": "b0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c04",
+			"type": "focus",
+			"ts": 1791374414000,
+			"data": {}
+		}
+	],
+	"rejected": [
+		{
+			"$comment": "Another envelope version: ignored, never guessed at",
+			"v": 2,
+			"id": "c0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c01",
+			"type": "cart.item_added",
+			"ts": 1791374415000,
+			"data": {}
+		},
+		{
+			"$comment": "A type this version does not have",
+			"v": 1,
+			"id": "c0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c02",
+			"type": "cart.exploded",
+			"ts": 1791374416000,
+			"data": {}
+		},
+		{
+			"$comment": "No id: cannot be deduplicated",
+			"v": 1,
+			"type": "close",
+			"ts": 1791374417000,
+			"data": {}
+		},
+		{
+			"$comment": "A cart event without its item",
+			"v": 1,
+			"id": "c0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c04",
+			"type": "cart.item_added",
+			"ts": 1791374418000,
+			"data": {
+				"storeId": "branch-7",
+				"conversationId": "cm1conversation0001",
+				"origin": "agent"
+			}
+		}
+	]
+}
