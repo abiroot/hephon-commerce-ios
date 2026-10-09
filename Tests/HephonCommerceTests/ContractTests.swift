@@ -203,8 +203,8 @@ final class HostContractTests: XCTestCase {
     }
 }
 
-/// A URL as host_v1.json compares it: origin, path and the unordered, decoded query pairs.
-private struct Parts: Equatable {
+/// A URL as host_v1.json and appearance_v1.json compare it: origin, path and the unordered, decoded query pairs.
+struct Parts: Equatable {
     let origin: String?
     let path: String
     let query: [String: String]

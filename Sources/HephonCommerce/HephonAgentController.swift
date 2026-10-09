@@ -123,6 +123,11 @@ public final class HephonAgentController: ObservableObject {
     private var bridgeReady = false
     private var disposed = false
     private var outbox: [HostMessage] = []
+    /// Everything `setAppearance` sent, merged: a page loaded later is told again. What the
+    /// app passed at open is on the chat URL.
+    private var keptAppearance: HephonAppearance?
+    /// The text passed at open and everything `setText` sent, merged, for a page loaded later.
+    private var keptText: HephonText?
     private var delivery: Task<Void, Never>?
     private var seen = Set<String>()
     private var seenOrder: [String] = []
@@ -162,31 +167,45 @@ public final class HephonAgentController: ObservableObject {
     ///
     /// The web view only shows the chat (`/c/<organization>`) on `host` and `customDomains`;
     /// every other link, the chat's own privacy page included, opens outside the app.
+    ///
+    /// `appearance` restyles the chat from its first paint, and stays for every later load.
+    /// `text` changes its words: it is sent once the chat is ready, and again after every later
+    /// load. Both are ignored when the retailer switched app changes off in Configure.
     public init(
         host: URL = HephonAgentController.defaultHost,
         organization: String,
         launch: HephonLaunch? = nil,
         store: String? = nil,
         locale: String? = nil,
+        appearance: HephonAppearance? = nil,
+        text: HephonText? = nil,
         customDomains: [URL] = []
     ) {
         let url = Self.chatURL(
-            host: host, organization: organization, launch: launch, store: store, locale: locale
+            host: host, organization: organization, launch: launch, store: store, locale: locale,
+            appearance: appearance
         )
         self.url = url
         identified = launch != nil
         chatPath = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath ?? ""
         allowedOrigins = Set(([host] + customDomains).compactMap(HephonNavigation.origin(of:)))
+        if let text {
+            // Never on the URL: held with the other messages until the chat is ready.
+            keptText = text
+            outbox.append(.text(text))
+        }
     }
 
     /// `<host>/c/<organization>?…&embed=ios&sdk=<version>`. A store only goes with an anonymous
-    /// launch: a token or code already names it.
+    /// launch: a token or code already names it. Each override of `appearance` that is set is a
+    /// parameter of its own name (`scheme=dark&primaryColor=%231E1EF2&showBasket=false`).
     public nonisolated static func chatURL(
         host: URL,
         organization: String,
         launch: HephonLaunch? = nil,
         store: String? = nil,
         locale: String? = nil,
+        appearance: HephonAppearance? = nil,
         embed: String = "ios",
         sdk: String = HephonCommerceSDK.version
     ) -> URL {
@@ -201,7 +220,8 @@ public final class HephonAgentController: ObservableObject {
         case let .code(code): [("code", code)]
         case nil: [("store", store)]
         }
-        parts.percentEncodedQuery = (query + [("embed", embed), ("sdk", sdk), ("locale", locale)])
+        let overrides: [(String, String?)] = (appearance?.pairs ?? []).map { ($0, $1.query) }
+        parts.percentEncodedQuery = (query + [("embed", embed), ("sdk", sdk), ("locale", locale)] + overrides)
             .compactMap { key, value in value.map { "\(key)=\(queryValue($0))" } }
             .joined(separator: "&")
         parts.fragment = nil
@@ -217,6 +237,30 @@ public final class HephonAgentController: ObservableObject {
     /// Tells the chat your app's color scheme.
     public func setTheme(_ scheme: HephonScheme) {
         send(.theme(scheme))
+    }
+
+    /// Restyles the open chat: only the fields that are set change, over what your app sent
+    /// before (at open or here). Held until the chat is ready, like every message, and sent
+    /// again after every later load, so a reload keeps it. Ignored when the retailer switched
+    /// app changes off in Configure.
+    public func setAppearance(_ appearance: HephonAppearance) {
+        if disposed {
+            return
+        }
+        keptAppearance = (keptAppearance ?? HephonAppearance()).merging(appearance)
+        send(.appearance(appearance))
+    }
+
+    /// Changes the open chat's words: only the fields that are set change, the labels one by
+    /// one, over what your app sent before (at open or here). Held until the chat is ready,
+    /// and sent again after every later load, so a reload keeps it. Ignored when the retailer
+    /// switched app changes off in Configure.
+    public func setText(_ text: HephonText) {
+        if disposed {
+            return
+        }
+        keptText = (keptText ?? HephonText()).merging(text)
+        send(.text(text))
     }
 
     /// Puts the cursor in the chat's message box. Call it after showing: a hidden chat ignores it.
@@ -389,6 +433,9 @@ public final class HephonAgentController: ObservableObject {
     private func handle(_ message: PageMessage) {
         switch message {
         case let .ready(ready):
+            // A page after the first one starts from the chat URL: it has none of the text and
+            // only the appearance the chat opened with.
+            let again = self.ready != nil
             self.ready = ready
             hasSession = true
             // Dismissed before this page could say that it cannot be told it is hidden.
@@ -400,6 +447,14 @@ public final class HephonAgentController: ObservableObject {
             pageState = .loaded
             // Every new document starts hidden: tell it again.
             sendVisibility()
+            if again {
+                if let keptText {
+                    deliver(.text(keptText))
+                }
+                if let keptAppearance {
+                    deliver(.appearance(keptAppearance))
+                }
+            }
             let pending = outbox
             outbox.removeAll()
             pending.forEach(deliver)

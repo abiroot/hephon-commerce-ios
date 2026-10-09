@@ -6,7 +6,7 @@ origin, and turns everything it does to the basket into typed callbacks in **you
 ids**, so your app's cart and checkout stay in charge.
 
 - `HephonAgentController`: one chat for one shopper (launch token or code, callbacks, cart
-  snapshot, theme, focus). An `ObservableObject` with `@Published pageState`. Call
+  snapshot, appearance, text, focus). An `ObservableObject` with `@Published pageState`. Call
   `preload()` and the chat is loaded before the shopper taps, and stays loaded between opens.
 - `HephonAgentViewController`: the chat with loading and retry states. Presented, it is a
   full-height sheet with a grabber.
@@ -22,14 +22,14 @@ iOS 15 or later, Xcode 16 or later. No dependencies.
 https://github.com/abiroot/hephon-commerce-ios.git
 ```
 
-set Dependency Rule to **Up to Next Major Version** from `1.1.0`, and add `HephonCommerce`
+set Dependency Rule to **Up to Next Major Version** from `1.2.0`, and add `HephonCommerce`
 to your app target.
 
 **Package.swift:**
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/abiroot/hephon-commerce-ios.git", from: "1.1.0"),
+    .package(url: "https://github.com/abiroot/hephon-commerce-ios.git", from: "1.2.0"),
 ],
 targets: [
     .target(name: "YourApp", dependencies: [
@@ -231,7 +231,108 @@ the store currency.
 - `focus()`: puts the cursor in the message box. A hidden chat ignores it: call it after showing.
 - `reload()`: loads the chat again after `pageState == .failed` (the view's Try again does it).
 
+- `setAppearance(HephonAppearance(...))`: restyles the open chat, see Appearance below.
+- `setText(HephonText(...))`: changes the open chat's words, see Text below.
+
 Messages sent before the chat is ready are held and delivered on `ready`.
+
+## Appearance
+
+Your app can restyle the chat it opens. Pass `appearance:` and the chat is drawn that way
+from its first paint:
+
+```swift
+let controller = HephonAgentController(
+    organization: "your-retailer",
+    launch: .token(launchToken),
+    appearance: HephonAppearance(scheme: .dark, primaryColor: "#1E1EF2", corners: .soft, header: .brand)
+)
+```
+
+While it is open, `setAppearance` changes only the fields you set, over what your app sent
+before. What it set is sent again when the chat loads again, so a reload keeps it:
+
+```swift
+controller.setAppearance(HephonAppearance(scheme: .light, showBasket: false))
+```
+
+**Colors**, each `"#RRGGBB"`:
+
+| Field | What it colors |
+|---|---|
+| `primaryColor`, `deepColor`, `accentColor` | the brand colors |
+| `dealColor` | deals and discounts |
+| `ctaColor` | the main buttons (add, checkout) |
+| `headerColor` | the header |
+| `bubbleColor` | the shopper's message bubble |
+| `surfaceColor` | the page behind the conversation |
+
+**Shape and type**:
+
+| Field | Values |
+|---|---|
+| `scheme` | `.light`, `.dark`, `.auto` (follows the device) |
+| `corners` | `.round`, `.soft`, `.square` |
+| `header` | `.plain`, `.brand` |
+| `buttons` | `.pill`, `.rounded`, `.square` |
+| `bubble` | `.brand`, `.soft` |
+| `font` | `.geist`, `.manrope`, `.system` |
+| `starterStyle` | `.photos`, `.list` |
+
+**What is shown**, each `true` or `false`:
+
+| Field | Part |
+|---|---|
+| `showHeader`, `showLogo` | the header, and the logo in it |
+| `showBasket`, `showCheckout` | the basket, and its checkout button |
+| `showNewChat` | the new chat button |
+| `showFollowUps` | the suggested replies under an answer |
+| `showSteps` | the agent's steps while it works |
+| `productSheet` | tapping a product opens its sheet in the chat |
+| `addFromCards` | a product card has its own add button |
+
+Every field is optional: one you leave out keeps what the retailer set in Hephon. A color
+that is not `#RRGGBB` stops a debug build in `HephonAppearance.init` (`assertionFailure`),
+so a typo shows the first time the code runs. A release build never crashes on one: it
+drops that color and the chat keeps the retailer's. `HephonAppearance.isColor(_:)` checks
+a color that comes from outside your code.
+
+The retailer can switch app changes off in **Configure**. The chat then ignores both the
+option and `setAppearance`, and `onReady`'s `capabilities` does not list `"appearance"`.
+
+## Text
+
+Your app can change the chat's words, at open or while it is open:
+
+```swift
+let controller = HephonAgentController(
+    organization: "your-retailer",
+    launch: .token(launchToken),
+    text: HephonText(
+        welcomeTitle: "What can we get you?",
+        placeholder: "Ask Suppy",
+        labels: .init(viewBasket: "View cart", checkout: "Go to checkout")
+    )
+)
+
+controller.setText(HephonText(labels: .init(addToBasket: "Add to cart")))
+```
+
+| Field | Where |
+|---|---|
+| `welcomeTitle`, `welcomeSubtitle` | the empty chat |
+| `placeholder` | the message box |
+| `tagline` | under the retailer's name in the header |
+| `labels` | `viewBasket`, `basketTitle`, `checkout`, `addToBasket`, `orderHelp`, `newChat` |
+
+Every field is optional, and `setText` changes only what you set, the labels one by one.
+Text is sent to the chat as a message once it is ready, never on the chat URL, so it shows
+a moment after the first paint. The controller keeps what you set and sends it again each
+time the chat loads again. Send the text in the shopper's language: the chat does not
+translate it.
+
+When the retailer has switched app changes off in **Configure**, the chat ignores it and
+`onReady`'s `capabilities` does not list `"text"`.
 
 ## Launch tokens
 

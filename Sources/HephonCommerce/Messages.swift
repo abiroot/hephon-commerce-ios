@@ -4,7 +4,7 @@ import Foundation
 /// is `{v: 1, id, type, ts, data}`; `id` is the idempotency key (events arrive at least once).
 ///
 /// Mirrors the `@repo/embed` schemas. `Tests/HephonCommerceTests/Fixtures/bridge_v1.json` and
-/// `preload_v1.json` are the shared contract both sides are tested against.
+/// `preload_v1.json` and `appearance_v1.json` are the shared contract both sides are tested against.
 public let hephonBridgeVersion = 1
 
 /// Who changed the cart.
@@ -263,6 +263,8 @@ public struct HostMessage: Sendable, Equatable {
         case theme(HephonScheme)
         case focus
         case visibility(shown: Bool, at: Int64?)
+        case appearance(HephonAppearance)
+        case text(HephonText)
     }
 
     private init(_ type: String, _ data: Body, id: String?, timestamp: Date?) {
@@ -305,6 +307,24 @@ public struct HostMessage: Sendable, Equatable {
         _ shown: Bool, at: Date? = nil, id: String? = nil, timestamp: Date? = nil
     ) -> HostMessage {
         HostMessage("visibility", .visibility(shown: shown, at: at.map(milliseconds)), id: id, timestamp: timestamp)
+    }
+
+    /// What your app restyles in the chat: only the fields that are set are sent, and the chat
+    /// merges them over what your app sent before. A flag is sent as true or false. Ignored
+    /// when the retailer switched app changes off (`ready` then lists no `appearance`
+    /// capability). Since 1.2.0.
+    public static func appearance(
+        _ appearance: HephonAppearance, id: String? = nil, timestamp: Date? = nil
+    ) -> HostMessage {
+        HostMessage("appearance", .appearance(appearance), id: id, timestamp: timestamp)
+    }
+
+    /// The words your app changes in the chat: only the fields that are set are sent (`labels`
+    /// only when a label is), and the chat merges them over what your app sent before. Ignored
+    /// when the retailer switched app changes off (`ready` then lists no `text` capability).
+    /// Since 1.2.0.
+    public static func text(_ text: HephonText, id: String? = nil, timestamp: Date? = nil) -> HostMessage {
+        HostMessage("text", .text(text), id: id, timestamp: timestamp)
     }
 
     /// The envelope as JSON text, what the page's `window.hephon.receive` takes.
@@ -351,6 +371,8 @@ extension HostMessage.Body: Encodable {
         case let .visibility(shown, at):
             try container.encode(shown, forKey: .shown)
             try container.encodeIfPresent(at, forKey: .at)
+        case let .appearance(appearance): try appearance.encodeData(to: encoder)
+        case let .text(text): try text.encodeData(to: encoder)
         }
     }
 }

@@ -1,3 +1,35 @@
+## 1.2.0
+
+- `HephonAppearance`: your app can restyle the chat it opens. 24 optional overrides, and
+  one you leave out keeps what the retailer set:
+  - colors (`"#RRGGBB"`): `primaryColor`, `deepColor`, `accentColor`, `dealColor`,
+    `ctaColor`, `headerColor`, `bubbleColor`, `surfaceColor`.
+  - shape and type: `scheme` (`.light`, `.dark`, `.auto`), `corners` (`.round`, `.soft`,
+    `.square`), `header` (`.plain`, `.brand`), `buttons` (`.pill`, `.rounded`, `.square`),
+    `bubble` (`.brand`, `.soft`), `font` (`.geist`, `.manrope`, `.system`), `starterStyle`
+    (`.photos`, `.list`).
+  - what is shown (`true` or `false`): `showHeader`, `showLogo`, `showBasket`,
+    `showCheckout`, `showNewChat`, `showFollowUps`, `showSteps`, `productSheet`,
+    `addFromCards`.
+- `HephonAgentController(appearance:)`: the chat is drawn restyled from its first paint.
+  The overrides are part of the chat URL, so a reload and a chat that loads again after
+  it was released keep them. `chatURL` takes `appearance:` too.
+- `setAppearance(_:)`: restyles the open chat. Only the fields that are set change, over
+  what your app sent before. Held until the chat is ready, like every message, and sent
+  again when the chat loads again. `HostMessage` has `.appearance`.
+- A color that is not `#RRGGBB` stops a debug build in `HephonAppearance.init`
+  (`assertionFailure`). A release build drops that color and keeps the rest.
+  `HephonAppearance.isColor(_:)` checks one.
+- `HephonText`: your app can change the chat's words: `welcomeTitle`, `welcomeSubtitle`,
+  `placeholder`, `tagline` and `labels` (`viewBasket`, `basketTitle`, `checkout`,
+  `addToBasket`, `orderHelp`, `newChat`). Pass it as `HephonAgentController(text:)` or
+  to `setText(_:)`, which changes only what is set, the labels one by one. Text is sent
+  as a message once the chat is ready, never on the chat URL, and again each time the
+  chat loads again. `HostMessage` has `.text`.
+- The retailer can switch app changes off in Configure. The chat then ignores appearance
+  and text, and its `ready` lists neither the `appearance` nor the `text` capability.
+- `setTheme` and `HephonScheme` are unchanged: code written for 1.1.0 needs no change.
+
 ## 1.1.0
 
 - `preload()`: loads the chat ahead of the tap, in a web view that is in no window. Keep

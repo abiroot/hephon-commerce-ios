@@ -1,0 +1,260 @@
+{
+	"$comment": "Appearance and text overrides since SDK 1.2.0 (ARCHITECTURE.md ADR-5.1, 5.4): what an app may change in the chat it opens. Canonical copy: packages/embed/fixtures/appearance_v1.json; every SDK keeps a byte-identical copy that its own tests read (scripts/check-sdk-fixtures.ts). `chatUrl` cases extend host_v1.json's: each appearance override is a search param of its own name (a flag is written `true` or `false`), and `expect` is compared as origin, path and an unordered set of decoded query pairs. `hostToPage` are the `appearance` messages setAppearance sends and the `text` messages setText sends: only the fields that were set. Text never goes on the URL.",
+	"keys": [
+		"scheme",
+		"primaryColor",
+		"deepColor",
+		"accentColor",
+		"dealColor",
+		"corners",
+		"header",
+		"ctaColor",
+		"headerColor",
+		"bubbleColor",
+		"surfaceColor",
+		"buttons",
+		"bubble",
+		"font",
+		"starterStyle",
+		"showHeader",
+		"showLogo",
+		"showBasket",
+		"showCheckout",
+		"showNewChat",
+		"showFollowUps",
+		"showSteps",
+		"productSheet",
+		"addFromCards"
+	],
+	"values": {
+		"scheme": ["light", "dark", "auto"],
+		"corners": ["round", "soft", "square"],
+		"header": ["plain", "brand"],
+		"buttons": ["pill", "rounded", "square"],
+		"bubble": ["brand", "soft"],
+		"font": ["geist", "manrope", "system"],
+		"starterStyle": ["photos", "list"]
+	},
+	"chatUrl": [
+		{
+			"host": "https://commerce.hephon.ai",
+			"organization": "suppy",
+			"embed": "ios",
+			"sdk": "1.2.0",
+			"appearance": {
+				"scheme": "dark"
+			},
+			"expect": "https://commerce.hephon.ai/c/suppy?embed=ios&sdk=1.2.0&scheme=dark",
+			"$comment": "One override: the chat opens dark."
+		},
+		{
+			"host": "https://commerce.hephon.ai",
+			"organization": "suppy-demo",
+			"launchToken": "token-1",
+			"embed": "flutter",
+			"sdk": "1.2.0",
+			"locale": "ar",
+			"appearance": {
+				"scheme": "auto",
+				"primaryColor": "#1E1EF2",
+				"deepColor": "#0B0B6B",
+				"accentColor": "#D9F99D",
+				"dealColor": "#15803D",
+				"corners": "soft",
+				"header": "brand"
+			},
+			"expect": "https://commerce.hephon.ai/c/suppy-demo?lt=token-1&embed=flutter&sdk=1.2.0&locale=ar&scheme=auto&primaryColor=%231E1EF2&deepColor=%230B0B6B&accentColor=%23D9F99D&dealColor=%2315803D&corners=soft&header=brand",
+			"$comment": "Every override, with a launch token. A colour is #RRGGBB and its # is query-encoded as %23: left bare it would start the URL's fragment and the colour would never reach the page."
+		},
+		{
+			"host": "https://chat.suppy.app/",
+			"organization": "suppy-demo",
+			"store": "branch-7",
+			"embed": "react-native",
+			"sdk": "1.2.0",
+			"appearance": {
+				"primaryColor": "#e11d48",
+				"corners": "square"
+			},
+			"expect": "https://chat.suppy.app/c/suppy-demo?store=branch-7&embed=react-native&sdk=1.2.0&primaryColor=%23e11d48&corners=square",
+			"$comment": "A colour is sent as written: the SDK does not change its case."
+		},
+		{
+			"host": "https://commerce.hephon.ai",
+			"organization": "suppy",
+			"embed": "android",
+			"sdk": "1.2.0",
+			"appearance": {
+				"ctaColor": "#0A7A3D",
+				"headerColor": "#111827",
+				"bubbleColor": "#2563EB",
+				"surfaceColor": "#F8FAFC",
+				"buttons": "rounded",
+				"bubble": "soft",
+				"font": "system",
+				"starterStyle": "list",
+				"showHeader": false,
+				"showLogo": false,
+				"showBasket": false,
+				"showCheckout": false,
+				"showNewChat": false,
+				"showFollowUps": false,
+				"showSteps": false,
+				"productSheet": false,
+				"addFromCards": true
+			},
+			"expect": "https://commerce.hephon.ai/c/suppy?embed=android&sdk=1.2.0&ctaColor=%230A7A3D&headerColor=%23111827&bubbleColor=%232563EB&surfaceColor=%23F8FAFC&buttons=rounded&bubble=soft&font=system&starterStyle=list&showHeader=false&showLogo=false&showBasket=false&showCheckout=false&showNewChat=false&showFollowUps=false&showSteps=false&productSheet=false&addFromCards=true",
+			"$comment": "The part colours, the button shape and every flag. A flag that is set is sent whether it is true or false; one that is not set is left out."
+		},
+		{
+			"host": "https://commerce.hephon.ai",
+			"organization": "suppy",
+			"embed": "android",
+			"sdk": "1.2.0",
+			"appearance": {},
+			"expect": "https://commerce.hephon.ai/c/suppy?embed=android&sdk=1.2.0",
+			"$comment": "No override set: the URL is the one host_v1.json describes."
+		}
+	],
+	"hostToPage": [
+		{
+			"v": 1,
+			"id": "d0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c01",
+			"type": "appearance",
+			"ts": 1791374421000,
+			"data": {
+				"scheme": "dark",
+				"primaryColor": "#1E1EF2",
+				"deepColor": "#0B0B6B",
+				"accentColor": "#D9F99D",
+				"dealColor": "#15803D",
+				"corners": "soft",
+				"header": "brand"
+			}
+		},
+		{
+			"v": 1,
+			"id": "d0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c02",
+			"type": "appearance",
+			"ts": 1791374422000,
+			"data": {
+				"scheme": "light"
+			}
+		},
+		{
+			"v": 1,
+			"id": "d0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c03",
+			"type": "appearance",
+			"ts": 1791374423000,
+			"data": {}
+		},
+		{
+			"v": 1,
+			"id": "d0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c05",
+			"type": "appearance",
+			"ts": 1791374424000,
+			"data": {
+				"ctaColor": "#0A7A3D",
+				"buttons": "square",
+				"font": "system",
+				"showHeader": false,
+				"showBasket": false,
+				"addFromCards": true
+			}
+		},
+		{
+			"v": 1,
+			"id": "d0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c06",
+			"type": "text",
+			"ts": 1791374425000,
+			"data": {
+				"welcomeTitle": "What can we get you?",
+				"welcomeSubtitle": "Delivered in under an hour",
+				"placeholder": "Ask Suppy",
+				"tagline": "Your shopping buddy",
+				"labels": {
+					"viewBasket": "View cart",
+					"basketTitle": "Your cart",
+					"checkout": "Go to checkout",
+					"addToBasket": "Add to cart",
+					"orderHelp": "Order support",
+					"newChat": "New conversation"
+				}
+			}
+		},
+		{
+			"v": 1,
+			"id": "d0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c07",
+			"type": "text",
+			"ts": 1791374426000,
+			"data": {
+				"labels": {
+					"checkout": "Go to checkout"
+				}
+			}
+		},
+		{
+			"v": 1,
+			"id": "d0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c08",
+			"type": "text",
+			"ts": 1791374427000,
+			"data": {}
+		}
+	],
+	"ready": {
+		"v": 1,
+		"id": "d0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c04",
+		"type": "ready",
+		"ts": 1791374420000,
+		"data": {
+			"orgSlug": "suppy-demo",
+			"storeId": "branch-7",
+			"capabilities": [
+				"cart.snapshot",
+				"session.launch",
+				"theme",
+				"focus",
+				"visibility",
+				"appearance",
+				"text"
+			]
+		},
+		"$comment": "The page lists the `appearance` and `text` capabilities only while the retailer lets apps change the chat. Without them the page ignores both messages and the URL's overrides."
+	},
+	"colors": [
+		"primaryColor",
+		"deepColor",
+		"accentColor",
+		"dealColor",
+		"ctaColor",
+		"headerColor",
+		"bubbleColor",
+		"surfaceColor"
+	],
+	"flags": [
+		"showHeader",
+		"showLogo",
+		"showBasket",
+		"showCheckout",
+		"showNewChat",
+		"showFollowUps",
+		"showSteps",
+		"productSheet",
+		"addFromCards"
+	],
+	"textKeys": [
+		"welcomeTitle",
+		"welcomeSubtitle",
+		"placeholder",
+		"tagline",
+		"labels"
+	],
+	"labels": [
+		"viewBasket",
+		"basketTitle",
+		"checkout",
+		"addToBasket",
+		"orderHelp",
+		"newChat"
+	]
+}
