@@ -1,5 +1,5 @@
 {
-	"$comment": "Appearance and text overrides since SDK 1.2.0 (ARCHITECTURE.md ADR-5.1, 5.4): what an app may change in the chat it opens. Canonical copy: packages/embed/fixtures/appearance_v1.json; every SDK keeps a byte-identical copy that its own tests read (scripts/check-sdk-fixtures.ts). `chatUrl` cases extend host_v1.json's: each appearance override is a search param of its own name (a flag is written `true` or `false`), and `expect` is compared as origin, path and an unordered set of decoded query pairs. `hostToPage` are the `appearance` messages setAppearance sends and the `text` messages setText sends: only the fields that were set. Text never goes on the URL.",
+	"$comment": "Appearance and text overrides since SDK 1.2.0, grown in 2.0.0 (the card, text, muted and line colours, fontFamily, showBasketButton, showBasketBar, showAssistantName, showStarters, hideOrderHelp, hideVoice, hideCall, assistantName and five more labels) (ARCHITECTURE.md ADR-5.1, 5.4): what an app may change in the chat it opens. Canonical copy: packages/embed/fixtures/appearance_v1.json; every SDK keeps a byte-identical copy that its own tests read (scripts/check-sdk-fixtures.ts). `chatUrl` cases extend host_v1.json's: each appearance override is a search param of its own name (a flag is written `true` or `false`), and `expect` is compared as origin, path and an unordered set of decoded query pairs. `hostToPage` are the `appearance` messages setAppearance sends and the `text` messages setText sends: only the fields that were set. Text never goes on the URL.",
 	"keys": [
 		"scheme",
 		"primaryColor",
@@ -12,19 +12,31 @@
 		"headerColor",
 		"bubbleColor",
 		"surfaceColor",
+		"cardColor",
+		"textColor",
+		"mutedColor",
+		"lineColor",
 		"buttons",
 		"bubble",
 		"font",
+		"fontFamily",
 		"starterStyle",
 		"showHeader",
 		"showLogo",
 		"showBasket",
+		"showBasketButton",
+		"showBasketBar",
 		"showCheckout",
 		"showNewChat",
 		"showFollowUps",
 		"showSteps",
 		"productSheet",
-		"addFromCards"
+		"addFromCards",
+		"showAssistantName",
+		"showStarters",
+		"hideOrderHelp",
+		"hideVoice",
+		"hideCall"
 	],
 	"values": {
 		"scheme": ["light", "dark", "auto"],
@@ -109,6 +121,29 @@
 		{
 			"host": "https://commerce.hephon.ai",
 			"organization": "suppy",
+			"store": "7",
+			"embed": "flutter",
+			"sdk": "2.0.0",
+			"appearance": {
+				"cardColor": "#FFFFFF",
+				"textColor": "#111827",
+				"mutedColor": "#6B7280",
+				"lineColor": "#E5E7EB",
+				"fontFamily": "Avenir Next",
+				"showBasketButton": true,
+				"showBasketBar": false,
+				"showAssistantName": false,
+				"showStarters": false,
+				"hideOrderHelp": true,
+				"hideVoice": true,
+				"hideCall": true
+			},
+			"expect": "https://commerce.hephon.ai/c/suppy?store=7&embed=flutter&sdk=2.0.0&cardColor=%23FFFFFF&textColor=%23111827&mutedColor=%236B7280&lineColor=%23E5E7EB&fontFamily=Avenir%20Next&showBasketButton=true&showBasketBar=false&showAssistantName=false&showStarters=false&hideOrderHelp=true&hideVoice=true&hideCall=true",
+			"$comment": "Since 2.0.0: the card, text, muted and line colours, a typeface of the device (its space is query-encoded; `+` or `%20`, the comparison is on decoded pairs), and the basket's two parts on their own. The app keeps its own cart bar and hides the chat's summary bar."
+		},
+		{
+			"host": "https://commerce.hephon.ai",
+			"organization": "suppy",
 			"embed": "android",
 			"sdk": "1.2.0",
 			"appearance": {},
@@ -164,6 +199,26 @@
 		},
 		{
 			"v": 1,
+			"id": "d0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c09",
+			"type": "appearance",
+			"ts": 1791374424500,
+			"data": {
+				"cardColor": "#FFFFFF",
+				"textColor": "#111827",
+				"mutedColor": "#6B7280",
+				"lineColor": "#E5E7EB",
+				"fontFamily": "Avenir Next",
+				"showBasketButton": true,
+				"showBasketBar": false,
+				"showAssistantName": false,
+				"showStarters": false,
+				"hideOrderHelp": true,
+				"hideVoice": true,
+				"hideCall": true
+			}
+		},
+		{
+			"v": 1,
 			"id": "d0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c06",
 			"type": "text",
 			"ts": 1791374425000,
@@ -178,8 +233,14 @@
 					"checkout": "Go to checkout",
 					"addToBasket": "Add to cart",
 					"orderHelp": "Order support",
-					"newChat": "New conversation"
-				}
+					"newChat": "New conversation",
+					"total": "Subtotal",
+					"emptyBasket": "Your cart is empty",
+					"thinking": "One moment",
+					"typing": "Writing",
+					"tryAgain": "Retry"
+				},
+				"assistantName": "Sousou"
 			}
 		},
 		{
@@ -229,24 +290,36 @@
 		"ctaColor",
 		"headerColor",
 		"bubbleColor",
-		"surfaceColor"
+		"surfaceColor",
+		"cardColor",
+		"textColor",
+		"mutedColor",
+		"lineColor"
 	],
 	"flags": [
 		"showHeader",
 		"showLogo",
 		"showBasket",
+		"showBasketButton",
+		"showBasketBar",
 		"showCheckout",
 		"showNewChat",
 		"showFollowUps",
 		"showSteps",
 		"productSheet",
-		"addFromCards"
+		"addFromCards",
+		"showAssistantName",
+		"showStarters",
+		"hideOrderHelp",
+		"hideVoice",
+		"hideCall"
 	],
 	"textKeys": [
 		"welcomeTitle",
 		"welcomeSubtitle",
 		"placeholder",
 		"tagline",
+		"assistantName",
 		"labels"
 	],
 	"labels": [
@@ -255,6 +328,12 @@
 		"checkout",
 		"addToBasket",
 		"orderHelp",
-		"newChat"
-	]
+		"newChat",
+		"total",
+		"emptyBasket",
+		"thinking",
+		"typing",
+		"tryAgain"
+	],
+	"strings": ["fontFamily"]
 }

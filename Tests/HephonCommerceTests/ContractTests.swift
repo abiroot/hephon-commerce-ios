@@ -30,7 +30,9 @@ final class BridgeContractTests: XCTestCase {
             return XCTFail("not item_added: \(parsed[2])")
         }
         XCTAssertEqual(added.origin, .agent)
-        XCTAssertEqual(added.item.itemId, "48213")
+        // Milk is item 7309008 in branch 7 and 48213 in the catalog.
+        XCTAssertEqual(added.item.itemId, "7309008")
+        XCTAssertEqual(added.item.catalogId, "48213")
         XCTAssertEqual(added.item.unitPrice, "1.50")
         XCTAssertEqual(added.item.substitution, "SIMILAR")
         XCTAssertNil(added.item.substituteItemId)
@@ -40,18 +42,24 @@ final class BridgeContractTests: XCTestCase {
         }
         XCTAssertEqual(updated.origin, .shopper)
         XCTAssertEqual(updated.item.previousQuantity, 2)
-        XCTAssertEqual(updated.item.substituteItemId, "48214")
+        XCTAssertEqual(updated.item.itemId, "7309008")
+        XCTAssertEqual(updated.item.catalogId, "48213")
+        XCTAssertEqual(updated.item.substituteItemId, "7309009")
 
         guard case let .cartItem(.removed, removed) = parsed[4].message else {
             return XCTFail("not item_removed: \(parsed[4])")
         }
         XCTAssertEqual(removed.origin, .host)
         XCTAssertEqual(removed.item.quantity, 0)
+        XCTAssertEqual(removed.item.itemId, "7309008")
+        XCTAssertEqual(removed.item.catalogId, "48213")
 
         guard case let .cartCleared(cleared) = parsed[5].message else {
             return XCTFail("not cleared: \(parsed[5])")
         }
+        // One id everywhere: both are the same.
         XCTAssertEqual(cleared.removed.map(\.itemId), ["51007", "60321"])
+        XCTAssertEqual(cleared.removed.map(\.catalogId), ["51007", "60321"])
         XCTAssertEqual(cleared.removed[1].substitution, "NONE")
 
         guard case let .checkout(cart) = parsed[6].message else {
@@ -62,21 +70,51 @@ final class BridgeContractTests: XCTestCase {
         XCTAssertEqual(cart.externalShopperId, "u-991")
         XCTAssertEqual(cart.hostSessionId, "host-session-42")
         XCTAssertEqual(cart.items.map(\.quantity), [2, 2])
+        XCTAssertEqual(cart.items.map(\.itemId), ["7309008", "60321"])
+        XCTAssertEqual(cart.items.map(\.catalogId), ["48213", "60321"])
         XCTAssertEqual(cart.items[1].substituteItemId, "60322")
 
         XCTAssertEqual(
             parsed[7].message,
             .handoff(HephonHandoff(conversationId: "cm1conversation0001", reason: "Asked for a person"))
         )
-        XCTAssertEqual(parsed[8].message, .openProduct(OpenProduct(itemId: "48213", storeId: "branch-7")))
+        XCTAssertEqual(parsed[8].message, .openProduct(OpenProduct(itemId: "7309008", catalogId: "48213", storeId: "branch-7")))
         XCTAssertEqual(parsed[9].message, .sessionExpired)
         XCTAssertEqual(parsed[10].message, .resize(height: 640))
         XCTAssertEqual(parsed[11].message, .close)
     }
 
     func testRejectsWhatIsNotBridgeV1() throws {
-        for message in try Fixture.list("bridge_v1", "rejected") {
+        let rejected = try Fixture.list("bridge_v1", "rejected")
+        XCTAssertEqual(rejected.count, 7)
+        for message in rejected {
             XCTAssertNil(PageMessage.parse(Fixture.json(message)), "accepted \(message["$comment"] ?? message)")
+        }
+        // A product without either of its ids is no product.
+        for (type, path) in [
+            ("cart.item_added", ["item"]), ("cart.item_updated", ["item"]), ("cart.item_removed", ["item"]),
+            ("cart.cleared", ["removed"]), ("checkout", ["items"]), ("open_product", []),
+        ] {
+            for id in ["itemId", "catalogId"] {
+                let message = try XCTUnwrap(
+                    Fixture.list("bridge_v1", "pageToHost").first { $0["type"] as? String == type }
+                )
+                var data = try XCTUnwrap(message["data"] as? [String: Any])
+                if let key = path.first, var item = data[key] as? [String: Any] {
+                    item[id] = nil
+                    data[key] = item
+                } else if let key = path.first, var lines = data[key] as? [[String: Any]] {
+                    lines[0][id] = nil
+                    data[key] = lines
+                } else {
+                    data[id] = nil
+                }
+                XCTAssertNotNil(PageMessage.parse(Fixture.json(message)), type)
+                XCTAssertNil(
+                    PageMessage.parse(Fixture.json(message.merging(["data": data]) { $1 })),
+                    "accepted \(type) without \(id)"
+                )
+            }
         }
         let close = try Fixture.page("close")
         for bad in [
@@ -102,10 +140,12 @@ final class BridgeContractTests: XCTestCase {
             let data = expected["data"] as? [String: Any] ?? [:]
             let message: HostMessage = switch expected["type"] as? String {
             case "cart.snapshot":
+                // The fixture's two lines, one from each initialiser.
                 .cartSnapshot(
-                    (data["items"] as? [[String: Any]] ?? []).map {
-                        CartSnapshotItem(itemId: $0["itemId"] as? String ?? "", quantity: $0["quantity"] as? Int ?? -1)
-                    },
+                    [
+                        CartSnapshotItem(itemId: "7309008", quantity: 2),
+                        CartSnapshotItem(catalogId: "51007", quantity: 0),
+                    ],
                     id: id, timestamp: at
                 )
             case "session.launch": .sessionLaunch(data["launchToken"] as? String ?? "", id: id, timestamp: at)
@@ -115,6 +155,39 @@ final class BridgeContractTests: XCTestCase {
             let encoded = try JSONSerialization.jsonObject(with: Data(message.json().utf8))
             XCTAssertEqual(encoded as? NSDictionary, expected as NSDictionary, "\(message.type)")
         }
+    }
+
+    func testASnapshotLineNamesItsItemByExactlyOneId() throws {
+        let json = HostMessage.cartSnapshot([
+            CartSnapshotItem(itemId: "7309008", quantity: 2),
+            CartSnapshotItem(catalogId: "51007", quantity: 0),
+        ]).json()
+        // The id that is not set is left out, never null or empty.
+        XCTAssertTrue(
+            json.contains(#""items":[{"itemId":"7309008","quantity":2},{"catalogId":"51007","quantity":0}]"#),
+            json
+        )
+        XCTAssertFalse(json.contains("null"))
+
+        let byItem = CartSnapshotItem(itemId: "7309008", quantity: 2)
+        XCTAssertEqual(byItem.itemId, "7309008")
+        XCTAssertNil(byItem.catalogId)
+        let byCatalog = CartSnapshotItem(catalogId: "51007", quantity: 0)
+        XCTAssertNil(byCatalog.itemId)
+        XCTAssertEqual(byCatalog.catalogId, "51007")
+        XCTAssertNotEqual(CartSnapshotItem(itemId: "51007", quantity: 0), byCatalog)
+
+        // A line with both ids or neither has no initialiser. What the two there are stop on
+        // (`precondition`, which a test cannot survive) is this check.
+        XCTAssertEqual(CartSnapshotItem.problem(id: "", quantity: 2), "a cart line needs the id of its item")
+        XCTAssertEqual(CartSnapshotItem.problem(id: "7309008", quantity: -1), "quantity cannot be negative")
+        XCTAssertNil(CartSnapshotItem.problem(id: "7309008", quantity: 0))
+        // The fixture's refused snapshots are the two shapes that cannot be built.
+        let refused = try Fixture.list("bridge_v1", "rejected").filter { $0["type"] as? String == "cart.snapshot" }
+        let lines = try refused.flatMap {
+            try XCTUnwrap(($0["data"] as? [String: Any])?["items"] as? [[String: Any]])
+        }
+        XCTAssertEqual(lines.map { [$0["itemId"] != nil, $0["catalogId"] != nil] }, [[false, false], [true, true]])
     }
 
     func testMintsLowercaseUUIDs() {

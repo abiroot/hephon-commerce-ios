@@ -18,21 +18,33 @@ private func appearance(_ data: [String: Any]) throws -> HephonAppearance {
         headerColor: data["headerColor"] as? String,
         bubbleColor: data["bubbleColor"] as? String,
         surfaceColor: data["surfaceColor"] as? String,
+        cardColor: data["cardColor"] as? String,
+        textColor: data["textColor"] as? String,
+        mutedColor: data["mutedColor"] as? String,
+        lineColor: data["lineColor"] as? String,
         buttons: (data["buttons"] as? String).map { try XCTUnwrap(HephonAppearance.Buttons(rawValue: $0), $0) },
         bubble: (data["bubble"] as? String).map { try XCTUnwrap(HephonAppearance.Bubble(rawValue: $0), $0) },
         font: (data["font"] as? String).map { try XCTUnwrap(HephonAppearance.Font(rawValue: $0), $0) },
+        fontFamily: data["fontFamily"] as? String,
         starterStyle: (data["starterStyle"] as? String).map {
             try XCTUnwrap(HephonAppearance.StarterStyle(rawValue: $0), $0)
         },
         showHeader: data["showHeader"] as? Bool,
         showLogo: data["showLogo"] as? Bool,
         showBasket: data["showBasket"] as? Bool,
+        showBasketButton: data["showBasketButton"] as? Bool,
+        showBasketBar: data["showBasketBar"] as? Bool,
         showCheckout: data["showCheckout"] as? Bool,
         showNewChat: data["showNewChat"] as? Bool,
         showFollowUps: data["showFollowUps"] as? Bool,
         showSteps: data["showSteps"] as? Bool,
         productSheet: data["productSheet"] as? Bool,
-        addFromCards: data["addFromCards"] as? Bool
+        addFromCards: data["addFromCards"] as? Bool,
+        showAssistantName: data["showAssistantName"] as? Bool,
+        showStarters: data["showStarters"] as? Bool,
+        hideOrderHelp: data["hideOrderHelp"] as? Bool,
+        hideVoice: data["hideVoice"] as? Bool,
+        hideCall: data["hideCall"] as? Bool
     )
 }
 
@@ -44,10 +56,13 @@ private func text(_ data: [String: Any]) -> HephonText {
         welcomeSubtitle: data["welcomeSubtitle"] as? String,
         placeholder: data["placeholder"] as? String,
         tagline: data["tagline"] as? String,
+        assistantName: data["assistantName"] as? String,
         labels: labels.map {
             HephonText.Labels(
                 viewBasket: $0["viewBasket"], basketTitle: $0["basketTitle"], checkout: $0["checkout"],
-                addToBasket: $0["addToBasket"], orderHelp: $0["orderHelp"], newChat: $0["newChat"]
+                addToBasket: $0["addToBasket"], orderHelp: $0["orderHelp"], newChat: $0["newChat"],
+                total: $0["total"], emptyBasket: $0["emptyBasket"], thinking: $0["thinking"],
+                typing: $0["typing"], tryAgain: $0["tryAgain"]
             )
         }
     )
@@ -58,9 +73,12 @@ private let everything = HephonAppearance(
     scheme: .auto, primaryColor: "#000001", deepColor: "#000002", accentColor: "#000003",
     dealColor: "#000004", corners: .square, header: .plain,
     ctaColor: "#000005", headerColor: "#000006", bubbleColor: "#000007", surfaceColor: "#000008",
-    buttons: .pill, bubble: .soft, font: .manrope, starterStyle: .photos,
-    showHeader: true, showLogo: false, showBasket: true, showCheckout: false, showNewChat: true,
-    showFollowUps: false, showSteps: true, productSheet: false, addFromCards: true
+    cardColor: "#000009", textColor: "#00000A", mutedColor: "#00000B", lineColor: "#00000C",
+    buttons: .pill, bubble: .soft, font: .manrope, fontFamily: "Avenir Next", starterStyle: .photos,
+    showHeader: true, showLogo: false, showBasket: true, showBasketButton: false, showBasketBar: true,
+    showCheckout: false, showNewChat: true, showFollowUps: false, showSteps: true, productSheet: false,
+    addFromCards: true,
+    showAssistantName: false, showStarters: true, hideOrderHelp: false, hideVoice: true, hideCall: false
 )
 
 /// appearance_v1.json: what an app may restyle in the chat it opens, since SDK 1.2.0.
@@ -80,12 +98,14 @@ final class AppearanceContractTests: XCTestCase {
 
         // Every key is a field: all set, all sent, in the fixture's order.
         let pairs = everything.pairs
-        XCTAssertEqual(pairs.count, 24)
+        XCTAssertEqual(pairs.count, 36)
         XCTAssertEqual(pairs.map(\.0), HephonAppearance.keys)
         XCTAssertEqual(pairs.map(\.1.query), [
             "auto", "#000001", "#000002", "#000003", "#000004", "square", "plain",
-            "#000005", "#000006", "#000007", "#000008", "pill", "soft", "manrope", "photos",
-            "true", "false", "true", "false", "true", "false", "true", "false", "true",
+            "#000005", "#000006", "#000007", "#000008", "#000009", "#00000A", "#00000B", "#00000C",
+            "pill", "soft", "manrope", "Avenir Next", "photos",
+            "true", "false", "true", "false", "true", "false", "true", "false", "true", "false", "true",
+            "false", "true", "false", "true", "false",
         ])
         // The colours are the fields that take #RRGGBB, the flags the ones sent as booleans.
         XCTAssertEqual(pairs.filter { $0.1.query.hasPrefix("#") }.map(\.0), fixture["colors"] as? [String])
@@ -93,6 +113,16 @@ final class AppearanceContractTests: XCTestCase {
             pairs.filter { if case .flag = $0.1 { true } else { false } }.map(\.0),
             fixture["flags"] as? [String]
         )
+        // Every key is a colour, a flag, a string or one of the choices in `values`.
+        let strings = try XCTUnwrap(fixture["strings"] as? [String])
+        XCTAssertEqual(strings, ["fontFamily"])
+        XCTAssertEqual(pairs.first { $0.0 == "fontFamily" }?.1, .text("Avenir Next"))
+        let colors = try XCTUnwrap(fixture["colors"] as? [String])
+        let flags = try XCTUnwrap(fixture["flags"] as? [String])
+        XCTAssertEqual(
+            Set(HephonAppearance.keys), Set(colors).union(flags).union(strings).union(values.keys)
+        )
+        XCTAssertEqual(HephonAppearance.keys.count, colors.count + flags.count + strings.count + values.count)
         XCTAssertTrue(HephonAppearance().pairs.isEmpty)
     }
 
@@ -101,12 +131,17 @@ final class AppearanceContractTests: XCTestCase {
         XCTAssertEqual(HephonText.keys, fixture["textKeys"] as? [String])
         XCTAssertEqual(HephonText.Labels.keys, fixture["labels"] as? [String])
         let labels = HephonText.Labels(
-            viewBasket: "1", basketTitle: "2", checkout: "3", addToBasket: "4", orderHelp: "5", newChat: "6"
+            viewBasket: "1", basketTitle: "2", checkout: "3", addToBasket: "4", orderHelp: "5", newChat: "6",
+            total: "7", emptyBasket: "8", thinking: "9", typing: "10", tryAgain: "11"
         )
         XCTAssertEqual(labels.pairs.map(\.0), HephonText.Labels.keys)
-        XCTAssertEqual(labels.pairs.map(\.1), ["1", "2", "3", "4", "5", "6"])
-        let all = HephonText(welcomeTitle: "a", welcomeSubtitle: "b", placeholder: "c", tagline: "d", labels: labels)
+        XCTAssertEqual(labels.pairs.map(\.1), ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"])
+        let all = HephonText(
+            welcomeTitle: "a", welcomeSubtitle: "b", placeholder: "c", tagline: "d", assistantName: "e",
+            labels: labels
+        )
         XCTAssertEqual(all.pairs.map(\.0) + ["labels"], HephonText.keys)
+        XCTAssertEqual(all.pairs.map(\.1), ["a", "b", "c", "d", "e"])
         let sent = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(HostMessage.text(all).json().utf8)) as? [String: Any]
         )
@@ -147,12 +182,26 @@ final class AppearanceContractTests: XCTestCase {
         )
         // No labels in the later one: the earlier ones stay.
         XCTAssertEqual(text.merging(HephonText(placeholder: "Ask")).labels, text.labels)
+        // The 2.0.0 fields merge like the rest.
+        XCTAssertEqual(
+            HephonText(assistantName: "Sousou", labels: .init(total: "Subtotal", typing: "Writing"))
+                .merging(HephonText(assistantName: "Sou", labels: .init(typing: "Typing", tryAgain: "Retry"))),
+            HephonText(assistantName: "Sou", labels: .init(total: "Subtotal", typing: "Typing", tryAgain: "Retry"))
+        )
+        XCTAssertEqual(
+            HephonAppearance(cardColor: "#000001", fontFamily: "Roboto", showBasketBar: true, hideVoice: true)
+                .merging(HephonAppearance(fontFamily: "Avenir Next", showBasketBar: false, hideCall: true)),
+            HephonAppearance(
+                cardColor: "#000001", fontFamily: "Avenir Next", showBasketBar: false, hideVoice: true,
+                hideCall: true
+            )
+        )
         XCTAssertEqual(HephonText().merging(text), text)
     }
 
     func testBuildsEveryChatURL() throws {
         let cases = try Fixture.list("appearance_v1", "chatUrl")
-        XCTAssertEqual(cases.count, 5)
+        XCTAssertEqual(cases.count, 6)
         for item in cases {
             let comment = item["$comment"] as? String ?? ""
             let url = try HephonAgentController.chatURL(
@@ -204,7 +253,7 @@ final class AppearanceContractTests: XCTestCase {
     func testEncodesAppearanceAsTheFixtureDoes() throws {
         let expected = try Fixture.list("appearance_v1", "hostToPage")
         XCTAssertEqual(expected.map { $0["type"] as? String }, [
-            "appearance", "appearance", "appearance", "appearance", "text", "text", "text",
+            "appearance", "appearance", "appearance", "appearance", "appearance", "text", "text", "text",
         ])
         for envelope in expected {
             let data = try XCTUnwrap(envelope["data"] as? [String: Any])
@@ -252,16 +301,52 @@ final class AppearanceContractTests: XCTestCase {
         for bad in ["", "red", "#FFF", "1E1EF2", "#1E1EFG", "#1E1EF2FF"] {
             XCTAssertNil(HephonAppearance.color(bad), "kept \(bad.debugDescription)")
         }
-        // All eight colours go through it.
+        // All twelve colours go through it.
         let kept = HephonAppearance(
             primaryColor: "#e11d48", deepColor: "#000002", accentColor: "#000003", dealColor: "#15803D",
-            ctaColor: "#0A7A3D", headerColor: "#111827", bubbleColor: "#2563EB", surfaceColor: "#F8FAFC"
+            ctaColor: "#0A7A3D", headerColor: "#111827", bubbleColor: "#2563EB", surfaceColor: "#F8FAFC",
+            cardColor: "#FFFFFF", textColor: "#111827", mutedColor: "#6B7280", lineColor: "#E5E7EB"
         )
         XCTAssertEqual(
             kept.pairs.map(\.1.query),
-            ["#e11d48", "#000002", "#000003", "#15803D", "#0A7A3D", "#111827", "#2563EB", "#F8FAFC"]
+            [
+                "#e11d48", "#000002", "#000003", "#15803D", "#0A7A3D", "#111827", "#2563EB", "#F8FAFC",
+                "#FFFFFF", "#111827", "#6B7280", "#E5E7EB",
+            ]
         )
         XCTAssertNil(HephonAppearance(primaryColor: "#e11d48").deepColor)
+    }
+
+    func testAFontFamilyIsATypefaceName() {
+        let longest = String(repeating: "a", count: 40)
+        for good in ["Avenir Next", "Roboto", "SF Pro Text", "Helvetica-Neue", "IBM_Plex.Sans", "خط", "A", longest] {
+            XCTAssertTrue(HephonAppearance.isFontFamily(good), good)
+            XCTAssertEqual(HephonAppearance.typeface(good), good)
+        }
+        for bad in [
+            "", " ", "\n", longest + "a", "Avenir, serif", "'Avenir'", "\"Avenir\"", "Avenir;", "a{b}", "a(b)",
+            "a\nb", "a\tb", "a/b", "a:b", "url(x)",
+        ] {
+            XCTAssertFalse(HephonAppearance.isFontFamily(bad), "accepted \(bad.debugDescription)")
+            XCTAssertNil(HephonAppearance.typeface(bad), "kept \(bad.debugDescription)")
+        }
+        // The space around a name is trimmed, as the chat does.
+        XCTAssertEqual(HephonAppearance.typeface("  Avenir Next \n"), "Avenir Next")
+        XCTAssertNil(HephonAppearance.typeface(nil))
+        XCTAssertEqual(HephonAppearance(fontFamily: "Avenir Next").fontFamily, "Avenir Next")
+        XCTAssertNil(HephonAppearance(font: .system).fontFamily)
+    }
+
+    /// The space of a typeface is percent-encoded on the chat URL.
+    func testEncodesTheFontFamilyOnTheURL() {
+        let url = HephonAgentController.chatURL(
+            host: HephonAgentController.defaultHost, organization: "suppy",
+            appearance: HephonAppearance(lineColor: "#E5E7EB", fontFamily: "Avenir Next", hideCall: true)
+        )
+        XCTAssertEqual(
+            url.absoluteString,
+            "\(hephon)/c/suppy?embed=ios&sdk=\(HephonCommerceSDK.version)&lineColor=%23E5E7EB&fontFamily=Avenir%20Next&hideCall=true"
+        )
     }
 
     /// `theme` is as it was in 1.0.0: light or dark, nothing else.

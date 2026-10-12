@@ -180,15 +180,15 @@ final class Shop: ObservableObject {
         }
         controller.onItemAdded = { [weak self] event in
             self?.apply(event)
-            self?.record("onItemAdded \(event.item.itemId) x\(event.item.quantity) (\(event.origin.rawValue))")
+            self?.record("onItemAdded \(Self.name(event.item)) x\(event.item.quantity) (\(event.origin.rawValue))")
         }
         controller.onItemUpdated = { [weak self] event in
             self?.apply(event)
-            self?.record("onItemUpdated \(event.item.itemId) \(event.item.previousQuantity) -> \(event.item.quantity)")
+            self?.record("onItemUpdated \(Self.name(event.item)) \(event.item.previousQuantity) -> \(event.item.quantity)")
         }
         controller.onItemRemoved = { [weak self] event in
             self?.apply(event)
-            self?.record("onItemRemoved \(event.item.itemId)")
+            self?.record("onItemRemoved \(Self.name(event.item))")
         }
         controller.onCartCleared = { [weak self] cleared in
             self?.cart.removeAll()
@@ -199,7 +199,9 @@ final class Shop: ObservableObject {
             self?.presented = nil
         }
         controller.onHandoff = { [weak self] handoff in self?.record("onHandoff \(handoff.reason ?? "")") }
-        controller.onOpenProduct = { [weak self] product in self?.record("onOpenProduct \(product.itemId)") }
+        controller.onOpenProduct = { [weak self] product in
+            self?.record("onOpenProduct \(product.itemId) (catalog \(product.catalogId))")
+        }
         controller.onSessionExpired = { [weak self] in
             // Ask your server for a fresh launch token here. With a launch token and
             // preload(), it is also asked each time the chat loads again.
@@ -214,6 +216,12 @@ final class Shop: ObservableObject {
             }
         }
         return controller
+    }
+
+    /// The item of a cart event: its id in this store, which the cart is keyed on, and its
+    /// id in the catalog.
+    private static func name(_ item: CartItem) -> String {
+        "\(item.itemId) (catalog \(item.catalogId))"
     }
 
     private func apply(_ event: CartItemEvent) {

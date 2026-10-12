@@ -1,3 +1,45 @@
+## 2.0.0
+
+Breaking:
+
+- `itemId` is now the product's id in the store, which for a platform with a row per store
+  is that row's id, not the catalog id. The catalog id is in the new `catalogId`. For a
+  platform with one id per product nothing changes: both are the same.
+- Key your cart on `itemId`: it is what a cart line or an order line in the session's
+  store is keyed on, so it needs no lookup. Use `catalogId` for what is not about one
+  store (your product page's route, analytics, matching your catalog).
+- `CartItem.catalogId`, `CartHandoffItem.catalogId` and `OpenProduct.catalogId`: a
+  `String`, always there, next to `itemId`. That is the item of `onItemAdded`,
+  `onItemUpdated` and `onItemRemoved`, each removed line of `onCartCleared`, each line of
+  `onCheckout`, and `onOpenProduct`. A message without it is ignored, like one without
+  `itemId`. `substituteItemId` keeps its name: the substitute's id in the same store.
+- A `cart.snapshot` line names its item by exactly one id. `CartSnapshotItem(itemId:quantity:)`
+  is the normal case and compiles as before; `CartSnapshotItem(catalogId:quantity:)` is
+  for a cart keyed on catalog ids. `CartSnapshotItem.itemId` and `.catalogId` are optional
+  to read: the one the line was not made with is nil. An empty id now stops in `init`
+  (`precondition`), like a negative quantity.
+
+Added:
+
+- `HephonAppearance`: 12 more optional overrides, 36 in all.
+  - colors (`"#RRGGBB"`): `cardColor` (product cards, the basket, the product sheet and
+    menus), `textColor` (replies, titles, prices), `mutedColor` (small print), `lineColor`
+    (the outlines of cards, chips and the message box).
+  - `fontFamily`: a typeface the device already has, like `"Avenir Next"`, ahead of
+    `font`. 1 to 40 letters, digits, spaces, dots, dashes or underscores. A name that is
+    not one stops a debug build (`assertionFailure`) and is dropped in a release build,
+    like a bad color. `HephonAppearance.isFontFamily(_:)` checks one.
+  - what is shown: `showBasketButton` (the basket button in the header), `showBasketBar`
+    (the summary bar above the message box: an app with its own cart bar sets it false;
+    `showBasket` still hides the whole basket), `showAssistantName` (the name above each
+    reply), `showStarters` (the suggested first messages on the welcome screen).
+  - what an app can only hide: `hideOrderHelp` ("Help with an order"), `hideVoice` (the
+    microphone: voice messages and dictation) and `hideCall` (the live voice call). `true`
+    hides the part; what the retailer has switched off stays off.
+- `HephonText`: `assistantName` (the name in the header and above each reply, up to 40
+  characters), and five more labels: `total`, `emptyBasket`, `thinking`, `typing`,
+  `tryAgain`.
+
 ## 1.2.0
 
 - `HephonAppearance`: your app can restyle the chat it opens. 24 optional overrides, and

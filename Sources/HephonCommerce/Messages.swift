@@ -20,8 +20,12 @@ public enum CartOrigin: String, Sendable, Decodable {
 /// One cart line as it changed. Prices are decimal strings in the store currency, so nothing
 /// is lost to floating point.
 public struct CartItem: Sendable, Decodable, Equatable {
-    /// Your item id (the retailer's catalog id).
+    /// The product's id in the store of the session: what a cart line or an order line there
+    /// is keyed on. On a platform with a row per store it is that row's id; on one with one id
+    /// per product it equals `catalogId`.
     public let itemId: String
+    /// The product's id in the catalog, the same in every store. Since 2.0.0.
+    public let catalogId: String
     public let quantity: Int
     public let previousQuantity: Int
     public let unitPrice: String
@@ -29,7 +33,8 @@ public struct CartItem: Sendable, Decodable, Equatable {
     public let title: String
     /// `SIMILAR`, `SPECIFIC` or `NONE` when the shopper chose one.
     public let substitution: String?
-    /// The item the shopper accepts instead, when `substitution` is `SPECIFIC`.
+    /// The item the shopper accepts instead, by its id in the same store, when `substitution`
+    /// is `SPECIFIC`.
     public let substituteItemId: String?
 }
 
@@ -52,15 +57,21 @@ public struct CartCleared: Sendable, Decodable, Equatable {
 
 /// One line of the cart handed over at checkout.
 public struct CartHandoffItem: Sendable, Decodable, Equatable {
+    /// The product's id in the store of the session: what a cart line or an order line there
+    /// is keyed on. On a platform with a row per store it is that row's id; on one with one id
+    /// per product it equals `catalogId`.
     public let itemId: String
+    /// The product's id in the catalog, the same in every store. Since 2.0.0.
+    public let catalogId: String
     public let quantity: Int
     public let unitPrice: String
     public let substitution: String?
-    /// The item the shopper accepts instead, when `substitution` is `SPECIFIC`.
+    /// The item the shopper accepts instead, by its id in the same store, when `substitution`
+    /// is `SPECIFIC`.
     public let substituteItemId: String?
 }
 
-/// The basket the shopper wants to buy, in your ids. Open your own checkout with it.
+/// The basket the shopper wants to buy, in your ids: each line by `itemId`, with its `catalogId`. Open your own checkout with it.
 public struct CartHandoff: Sendable, Decodable, Equatable {
     public let storeId: String
     public let currency: String
@@ -93,7 +104,12 @@ public struct HephonHandoff: Sendable, Decodable, Equatable {
 
 /// The shopper opened a product in the chat. Show your own product page if you prefer.
 public struct OpenProduct: Sendable, Decodable, Equatable {
+    /// The product's id in the store of the session: what a cart line or an order line there
+    /// is keyed on. On a platform with a row per store it is that row's id; on one with one id
+    /// per product it equals `catalogId`.
     public let itemId: String
+    /// The product's id in the catalog, the same in every store. Since 2.0.0.
+    public let catalogId: String
     public let storeId: String
 }
 
@@ -232,16 +248,45 @@ private struct AnyObjectShape: Decodable {
     }
 }
 
-/// One line of your app's cart, for `sendCartSnapshot`.
+/// One line of your app's cart, for `sendCartSnapshot`. It names its item by the id your cart
+/// holds: `itemId` (the product in this store, as cart events give it), or `catalogId` for a
+/// cart keyed on catalog ids. One of the two, never both.
 public struct CartSnapshotItem: Sendable, Encodable, Equatable {
-    public let itemId: String
+    /// The product's id in the store of the session. Nil for a line made with `catalogId`.
+    public let itemId: String?
+    /// The product's id in the catalog. Nil for a line made with `itemId`. Since 2.0.0.
+    public let catalogId: String?
     /// 0 removes the line.
     public let quantity: Int
 
+    /// A line by the id your cart holds, as cart events give it. An empty id or a negative
+    /// quantity stops here (`precondition`).
     public init(itemId: String, quantity: Int) {
-        precondition(quantity >= 0, "quantity cannot be negative")
+        if let problem = Self.problem(id: itemId, quantity: quantity) {
+            preconditionFailure(problem)
+        }
         self.itemId = itemId
+        catalogId = nil
         self.quantity = quantity
+    }
+
+    /// A line by catalog id, for a cart keyed on catalog ids. An empty id or a negative
+    /// quantity stops here (`precondition`). Since 2.0.0.
+    public init(catalogId: String, quantity: Int) {
+        if let problem = Self.problem(id: catalogId, quantity: quantity) {
+            preconditionFailure(problem)
+        }
+        itemId = nil
+        self.catalogId = catalogId
+        self.quantity = quantity
+    }
+
+    /// Why an `init` refuses these arguments, nil when it takes them.
+    static func problem(id: String, quantity: Int) -> String? {
+        if quantity < 0 {
+            return "quantity cannot be negative"
+        }
+        return id.isEmpty ? "a cart line needs the id of its item" : nil
     }
 }
 
@@ -275,7 +320,8 @@ public struct HostMessage: Sendable, Equatable {
     }
 
     /// Your cart, so the agent works from what the shopper already has. Each listed item's
-    /// quantity is set (0 removes it); an empty list empties the chat's basket.
+    /// quantity is set (0 removes it); an empty list empties the chat's basket. A line names
+    /// its item by `itemId`, or by `catalogId` for a cart keyed on catalog ids.
     public static func cartSnapshot(
         _ items: [CartSnapshotItem], id: String? = nil, timestamp: Date? = nil
     ) -> HostMessage {

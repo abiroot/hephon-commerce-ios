@@ -73,7 +73,7 @@ final class ControllerTests: XCTestCase {
         controller.onCartCleared = { [unowned self] in log.append("cleared \($0.removed.count)") }
         controller.onCheckout = { [unowned self] in log.append("checkout \($0.total)") }
         controller.onHandoff = { [unowned self] in log.append("handoff \($0.conversationId)") }
-        controller.onOpenProduct = { [unowned self] in log.append("open_product \($0.itemId)") }
+        controller.onOpenProduct = { [unowned self] in log.append("open_product \($0.itemId) \($0.catalogId)") }
         controller.onClose = { [unowned self] in log.append("close") }
         controller.onSessionExpired = onSessionExpired
         controller.onMicrophonePermission = onMicrophonePermission
@@ -117,8 +117,8 @@ final class ControllerTests: XCTestCase {
         try post(controller, Fixture.page("cart.item_added", ["id": "other", "v": 2]))
 
         XCTAssertEqual(log, [
-            "ready branch-7", "added 48213", "updated 3", "removed 48213", "cleared 2",
-            "checkout 21.25", "handoff cm1conversation0001", "open_product 48213", "close",
+            "ready branch-7", "added 7309008", "updated 3", "removed 7309008", "cleared 2",
+            "checkout 21.25", "handoff cm1conversation0001", "open_product 7309008 48213", "close",
         ])
         XCTAssertEqual(controller.pageState, .loaded)
     }
@@ -133,7 +133,7 @@ final class ControllerTests: XCTestCase {
         XCTAssertEqual(log, [])
         // The custom domain is the chat too.
         post(controller, added, origin: "https://chat.suppy.app")
-        XCTAssertEqual(log, ["added 48213"])
+        XCTAssertEqual(log, ["added 7309008"])
     }
 
     func testForgetsTheOldestIDsPast500() throws {
@@ -152,7 +152,7 @@ final class ControllerTests: XCTestCase {
 
     func testHoldsHostMessagesUntilThePageIsReady() async throws {
         let (controller, web) = open()
-        controller.sendCartSnapshot([CartSnapshotItem(itemId: "48213", quantity: 2)])
+        controller.sendCartSnapshot([CartSnapshotItem(itemId: "7309008", quantity: 2)])
         controller.focus()
         await settle()
         XCTAssertEqual(web.delivered, [])
@@ -163,7 +163,7 @@ final class ControllerTests: XCTestCase {
         let sent = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(web.delivered[0].utf8)) as? NSDictionary
         )
-        XCTAssertEqual(sent["data"] as? NSDictionary, ["items": [["itemId": "48213", "quantity": 2]]])
+        XCTAssertEqual(sent["data"] as? NSDictionary, ["items": [["itemId": "7309008", "quantity": 2]]])
 
         controller.setTheme(.dark)
         await until { web.delivered.count == 3 }

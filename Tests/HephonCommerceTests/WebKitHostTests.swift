@@ -31,7 +31,7 @@ final class WebKitHostTests: XCTestCase {
             window.hephon = { receive(json) {
                 const m = JSON.parse(json);
                 post({ v: 1, id: "echo-" + m.id, type: "open_product", ts: Date.now(),
-                       data: { itemId: m.type, storeId: "branch-7" } });
+                       data: { itemId: m.type, catalogId: m.type, storeId: "branch-7" } });
             } };
             window.webkit.messageHandlers.HephonBridge.postMessage(\(Fixture.json(ready)));
             </script>

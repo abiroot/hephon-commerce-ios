@@ -1,5 +1,5 @@
 {
-	"$comment": "Bridge envelope v1 contract (ARCHITECTURE.md ADR-5.4). Canonical copy: packages/embed/fixtures/bridge_v1.json, checked against the zod schemas by packages/embed/src/__tests__/bridge-contract.test.ts. Every SDK keeps a byte-identical copy that its own tests parse with its models (scripts/check-sdk-fixtures.ts). Every message type appears at least once.",
+	"$comment": "Bridge envelope v1 contract (ARCHITECTURE.md ADR-5.4), as of SDK 2.0.0. Canonical copy: packages/embed/fixtures/bridge_v1.json, checked against the zod schemas by packages/embed/src/__tests__/bridge-contract.test.ts. Every SDK keeps a byte-identical copy that its own tests parse with its models (scripts/check-sdk-fixtures.ts). Every 1.0.0 message type appears at least once. A product has two ids of the retailer's, both always sent: `itemId`, its id in the store of the session (what a cart line there is keyed on), and `catalogId`, its id in the catalog. Here milk is catalog item 48213 and item 7309008 in branch 7 (a platform with a row per store), while bread and water have one id everywhere, so theirs are equal. A `cart.snapshot` line names its item by exactly one of the two.",
 	"pageToHost": [
 		{
 			"v": 1,
@@ -40,7 +40,8 @@
 				"conversationId": "cm1conversation0001",
 				"origin": "agent",
 				"item": {
-					"itemId": "48213",
+					"itemId": "7309008",
+					"catalogId": "48213",
 					"quantity": 2,
 					"previousQuantity": 0,
 					"unitPrice": "1.50",
@@ -60,14 +61,15 @@
 				"conversationId": "cm1conversation0001",
 				"origin": "shopper",
 				"item": {
-					"itemId": "48213",
+					"itemId": "7309008",
+					"catalogId": "48213",
 					"quantity": 3,
 					"previousQuantity": 2,
 					"unitPrice": "1.50",
 					"currency": "USD",
 					"title": "Fresh Milk 1L",
 					"substitution": "SPECIFIC",
-					"substituteItemId": "48214"
+					"substituteItemId": "7309009"
 				}
 			}
 		},
@@ -81,7 +83,8 @@
 				"conversationId": "cm1conversation0001",
 				"origin": "host",
 				"item": {
-					"itemId": "48213",
+					"itemId": "7309008",
+					"catalogId": "48213",
 					"quantity": 0,
 					"previousQuantity": 3,
 					"unitPrice": "1.50",
@@ -101,6 +104,7 @@
 				"removed": [
 					{
 						"itemId": "51007",
+						"catalogId": "51007",
 						"quantity": 0,
 						"previousQuantity": 1,
 						"unitPrice": "0.90",
@@ -109,6 +113,7 @@
 					},
 					{
 						"itemId": "60321",
+						"catalogId": "60321",
 						"quantity": 0,
 						"previousQuantity": 2,
 						"unitPrice": "8.75",
@@ -132,9 +137,15 @@
 				"externalShopperId": "u-991",
 				"hostSessionId": "host-session-42",
 				"items": [
-					{ "itemId": "48213", "quantity": 2, "unitPrice": "1.50" },
+					{
+						"itemId": "7309008",
+						"catalogId": "48213",
+						"quantity": 2,
+						"unitPrice": "1.50"
+					},
 					{
 						"itemId": "60321",
+						"catalogId": "60321",
 						"quantity": 2,
 						"unitPrice": "8.75",
 						"substitution": "SPECIFIC",
@@ -158,7 +169,11 @@
 			"id": "a0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c09",
 			"type": "open_product",
 			"ts": 1791374407000,
-			"data": { "itemId": "48213", "storeId": "branch-7" }
+			"data": {
+				"itemId": "7309008",
+				"catalogId": "48213",
+				"storeId": "branch-7"
+			}
 		},
 		{
 			"v": 1,
@@ -172,7 +187,9 @@
 			"id": "a0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c11",
 			"type": "resize",
 			"ts": 1791374409000,
-			"data": { "height": 640 }
+			"data": {
+				"height": 640
+			}
 		},
 		{
 			"v": 1,
@@ -190,8 +207,14 @@
 			"ts": 1791374411000,
 			"data": {
 				"items": [
-					{ "itemId": "48213", "quantity": 2 },
-					{ "itemId": "51007", "quantity": 0 }
+					{
+						"itemId": "7309008",
+						"quantity": 2
+					},
+					{
+						"catalogId": "51007",
+						"quantity": 0
+					}
 				]
 			}
 		},
@@ -209,7 +232,9 @@
 			"id": "b0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c03",
 			"type": "theme",
 			"ts": 1791374413000,
-			"data": { "scheme": "dark" }
+			"data": {
+				"scheme": "dark"
+			}
 		},
 		{
 			"v": 1,
@@ -253,6 +278,56 @@
 				"storeId": "branch-7",
 				"conversationId": "cm1conversation0001",
 				"origin": "agent"
+			}
+		},
+		{
+			"$comment": "A snapshot line that names no item",
+			"v": 1,
+			"id": "b0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1d02",
+			"type": "cart.snapshot",
+			"ts": 1791374512000,
+			"data": {
+				"items": [
+					{
+						"quantity": 2
+					}
+				]
+			}
+		},
+		{
+			"$comment": "A snapshot line that names its item twice: one id, the one the app's cart holds",
+			"v": 1,
+			"id": "b0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1d03",
+			"type": "cart.snapshot",
+			"ts": 1791374513000,
+			"data": {
+				"items": [
+					{
+						"itemId": "7309008",
+						"catalogId": "48213",
+						"quantity": 2
+					}
+				]
+			}
+		},
+		{
+			"$comment": "A cart item without its catalog id",
+			"v": 1,
+			"id": "c0c6f0d2-6a1e-4b8e-9d55-2f0f4a6f1c05",
+			"type": "cart.item_added",
+			"ts": 1791374419000,
+			"data": {
+				"storeId": "branch-7",
+				"conversationId": "cm1conversation0001",
+				"origin": "agent",
+				"item": {
+					"itemId": "7309008",
+					"quantity": 1,
+					"previousQuantity": 0,
+					"unitPrice": "1.50",
+					"currency": "USD",
+					"title": "Fresh Milk 1L"
+				}
 			}
 		}
 	]

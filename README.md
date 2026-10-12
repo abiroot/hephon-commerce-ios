@@ -22,14 +22,14 @@ iOS 15 or later, Xcode 16 or later. No dependencies.
 https://github.com/abiroot/hephon-commerce-ios.git
 ```
 
-set Dependency Rule to **Up to Next Major Version** from `1.2.0`, and add `HephonCommerce`
+set Dependency Rule to **Up to Next Major Version** from `2.0.0`, and add `HephonCommerce`
 to your app target.
 
 **Package.swift:**
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/abiroot/hephon-commerce-ios.git", from: "1.2.0"),
+    .package(url: "https://github.com/abiroot/hephon-commerce-ios.git", from: "2.0.0"),
 ],
 targets: [
     .target(name: "YourApp", dependencies: [
@@ -207,11 +207,11 @@ All run on the main actor.
 | Callback | When | You get |
 |---|---|---|
 | `onReady` | the chat is open and listening | store, resumed conversation, capabilities |
-| `onItemAdded` / `onItemUpdated` / `onItemRemoved` | a basket line changed (by the agent, the shopper, or your snapshot) | `CartItemEvent`: `item.itemId`, `quantity`, `previousQuantity`, `unitPrice`, `currency`, `origin` |
-| `onCartCleared` | the basket was emptied | the removed lines |
-| `onCheckout` | the shopper tapped checkout | `CartHandoff` with every line in your ids, total, currency, substitutions |
+| `onItemAdded` / `onItemUpdated` / `onItemRemoved` | a basket line changed (by the agent, the shopper, or your snapshot) | `CartItemEvent`: `item.itemId`, `item.catalogId`, `quantity`, `previousQuantity`, `unitPrice`, `currency`, `origin` |
+| `onCartCleared` | the basket was emptied | the removed lines, each with `itemId` and `catalogId` |
+| `onCheckout` | the shopper tapped checkout | `CartHandoff` with every line in your ids (`itemId`, `catalogId`), total, currency, substitutions |
 | `onHandoff` | the agent passed the conversation to a person | conversation id, reason |
-| `onOpenProduct` | the shopper opened a product | item id |
+| `onOpenProduct` | the shopper opened a product | `itemId`, `catalogId`, store |
 | `onSessionExpired` | the chat session ended | return a fresh launch token to continue in place, or nil (a throw counts as nil, and the next expiry asks again). After three refused tokens in a row (asked again after 2 s and 4 s) the controller stops asking |
 | `onMicrophonePermission` | the chat wants the microphone for voice | return whether iOS granted it; anything else denies |
 | `onTiming` | the chat was shown and is usable | `open` in ms, `preloaded` |
@@ -222,11 +222,46 @@ change's id is the same as the signed webhook's `webhook-id`, so a server that a
 webhooks can match them. The webhook is the source of truth. Prices are decimal strings in
 the store currency.
 
+### Item ids: `itemId` and `catalogId`
+
+A product has two of your ids, and the chat always sends both:
+
+- `itemId`: the product's id **in the store of the session**. It is what a cart line or an
+  order line there is keyed on. On a platform that keeps a row per store (a branch
+  inventory id, a marketplace listing id) it is that row's id. On a platform with one id
+  per product it equals the catalog id.
+- `catalogId`: the product's id **in the catalog**, the same in every store.
+
+**Key your cart on `itemId`.** Use `catalogId` for what is not about one store: your
+product page's route, analytics, matching your catalog. Both are on the item of every cart
+event, on each removed line of `onCartCleared`, on each line of `onCheckout` and on
+`onOpenProduct`. `substituteItemId` is the substitute's id in the same store.
+
+```swift
+controller.onItemAdded = { event in
+    if event.origin != .host { cart.set(event.item.itemId, event.item.quantity) }
+}
+controller.onItemRemoved = { event in
+    if event.origin != .host { cart.remove(event.item.itemId) }
+}
+controller.onCheckout = { handoff in
+    openCheckout(lines: handoff.items.map { ($0.itemId, $0.quantity) })
+}
+controller.onOpenProduct = { product in showProduct(catalogId: product.catalogId) }
+
+// The same ids go back in the snapshot.
+controller.sendCartSnapshot(cart.lines.map { CartSnapshotItem(itemId: $0.id, quantity: $0.quantity) })
+```
+
 ### From your app to the chat
 
-- `sendCartSnapshot([CartSnapshotItem(itemId: "48213", quantity: 2)])`: sets each listed
+- `sendCartSnapshot([CartSnapshotItem(itemId: "7309008", quantity: 2)])`: sets each listed
   item's quantity in the chat's basket (0 removes it; an empty list empties it). Send it
   before you show the chat. Quantities over 99 are set to 99 and come back as `.host` events.
+  A line names its item by the id your cart holds: `itemId`, or
+  `CartSnapshotItem(catalogId: "48213", quantity: 2)` for a cart keyed on catalog ids. One
+  of the two, never both. An empty id or a negative quantity stops in `init`
+  (`precondition`).
 - `setTheme(.dark)`: accepted; the chat stays light for now.
 - `focus()`: puts the cursor in the message box. A hidden chat ignores it: call it after showing.
 - `reload()`: loads the chat again after `pageState == .failed` (the view's Try again does it).
@@ -266,6 +301,10 @@ controller.setAppearance(HephonAppearance(scheme: .light, showBasket: false))
 | `headerColor` | the header |
 | `bubbleColor` | the shopper's message bubble |
 | `surfaceColor` | the page behind the conversation |
+| `cardColor` | product cards, the basket, the product sheet and menus |
+| `textColor` | replies, titles, prices |
+| `mutedColor` | small print |
+| `lineColor` | the outlines of cards, chips and the message box |
 
 **Shape and type**:
 
@@ -277,6 +316,7 @@ controller.setAppearance(HephonAppearance(scheme: .light, showBasket: false))
 | `buttons` | `.pill`, `.rounded`, `.square` |
 | `bubble` | `.brand`, `.soft` |
 | `font` | `.geist`, `.manrope`, `.system` |
+| `fontFamily` | a typeface the device already has, like `"Avenir Next"`, ahead of `font`. 1 to 40 letters, digits, spaces, dots, dashes or underscores. A name the device lacks falls back to `font` |
 | `starterStyle` | `.photos`, `.list` |
 
 **What is shown**, each `true` or `false`:
@@ -284,18 +324,29 @@ controller.setAppearance(HephonAppearance(scheme: .light, showBasket: false))
 | Field | Part |
 |---|---|
 | `showHeader`, `showLogo` | the header, and the logo in it |
-| `showBasket`, `showCheckout` | the basket, and its checkout button |
+| `showBasket`, `showCheckout` | the whole basket, and its checkout button |
+| `showBasketButton` | the basket button in the header |
+| `showBasketBar` | the summary bar above the message box (item count, total, "View basket"). An app with its own cart bar sets it `false` |
 | `showNewChat` | the new chat button |
 | `showFollowUps` | the suggested replies under an answer |
 | `showSteps` | the agent's steps while it works |
 | `productSheet` | tapping a product opens its sheet in the chat |
 | `addFromCards` | a product card has its own add button |
+| `showAssistantName` | the name above each reply |
+| `showStarters` | the suggested first messages on the welcome screen |
+| `hideOrderHelp` | `true` hides "Help with an order" |
+| `hideVoice` | `true` hides the microphone: voice messages and dictation |
+| `hideCall` | `true` hides the live voice call |
+
+The last three are named `hide` because that is all an app can do with them: what the
+retailer has switched off stays off.
 
 Every field is optional: one you leave out keeps what the retailer set in Hephon. A color
 that is not `#RRGGBB` stops a debug build in `HephonAppearance.init` (`assertionFailure`),
 so a typo shows the first time the code runs. A release build never crashes on one: it
 drops that color and the chat keeps the retailer's. `HephonAppearance.isColor(_:)` checks
-a color that comes from outside your code.
+a color that comes from outside your code. A `fontFamily` that is not a typeface name is
+treated the same way, and `HephonAppearance.isFontFamily(_:)` checks one.
 
 The retailer can switch app changes off in **Configure**. The chat then ignores both the
 option and `setAppearance`, and `onReady`'s `capabilities` does not list `"appearance"`.
@@ -323,7 +374,8 @@ controller.setText(HephonText(labels: .init(addToBasket: "Add to cart")))
 | `welcomeTitle`, `welcomeSubtitle` | the empty chat |
 | `placeholder` | the message box |
 | `tagline` | under the retailer's name in the header |
-| `labels` | `viewBasket`, `basketTitle`, `checkout`, `addToBasket`, `orderHelp`, `newChat` |
+| `assistantName` | the name in the header and above each reply (up to 40 characters) |
+| `labels` | `viewBasket`, `basketTitle`, `checkout`, `addToBasket`, `orderHelp`, `newChat`, `total`, `emptyBasket`, `thinking`, `typing`, `tryAgain` |
 
 Every field is optional, and `setText` changes only what you set, the labels one by one.
 Text is sent to the chat as a message once it is ready, never on the chat URL, so it shows
@@ -377,7 +429,7 @@ The Install screen has the signing code for Node, and the Flutter package's READ
   lists every event with its open time. Open `Example/HephonCommerceExample.xcodeproj`, run
   it on a simulator, and paste a test code.
 - `xcodebuild test -scheme HephonCommerce -destination 'platform=iOS Simulator,name=iPhone 17'`
-  runs the contract tests (the bridge and host fixtures every Hephon SDK shares) and the
+  runs the contract tests (the bridge, host and appearance fixtures every Hephon SDK shares) and the
   controller tests.
 - On an iOS 18.4 to 18.x simulator, an app whose deployment target is older than the
   simulator's iOS stops at launch with `Library not loaded: /usr/lib/swift/libswiftWebKit.dylib`.
