@@ -1,5 +1,5 @@
 {
-	"$comment": "Bridge envelope v1 contract (ARCHITECTURE.md ADR-5.4), as of SDK 2.0.0. Canonical copy: packages/embed/fixtures/bridge_v1.json, checked against the zod schemas by packages/embed/src/__tests__/bridge-contract.test.ts. Every SDK keeps a byte-identical copy that its own tests parse with its models (scripts/check-sdk-fixtures.ts). Every 1.0.0 message type appears at least once. A product has two ids of the retailer's, both always sent: `itemId`, its id in the store of the session (what a cart line there is keyed on), and `catalogId`, its id in the catalog. Here milk is catalog item 48213 and item 7309008 in branch 7 (a platform with a row per store), while bread and water have one id everywhere, so theirs are equal. A `cart.snapshot` line names its item by exactly one of the two.",
+	"$comment": "Bridge envelope v1 contract (ARCHITECTURE.md ADR-5.4), as of SDK 2.1.0. Canonical copy: packages/embed/fixtures/bridge_v1.json, checked against the zod schemas by packages/embed/src/__tests__/bridge-contract.test.ts. Every SDK keeps a byte-identical copy that its own tests parse with its models (scripts/check-sdk-fixtures.ts). Every 1.0.0 message type appears at least once. A product has two ids of the retailer's, both always sent: `itemId`, its id in the store of the session (what a cart line there is keyed on), and `catalogId`, its id in the catalog. Here milk is catalog item 48213 and item 7309008 in branch 7 (a platform with a row per store), while bread and water have one id everywhere, so theirs are equal. A `cart.snapshot` line names its item by exactly one of the two. Since 2.1.0 a cart item carries `imageUrl`, the product's main image, when it has one: the first two events here do, the rest do not.",
 	"pageToHost": [
 		{
 			"v": 1,
@@ -47,6 +47,7 @@
 					"unitPrice": "1.50",
 					"currency": "USD",
 					"title": "Fresh Milk 1L",
+					"imageUrl": "https://cdn.example.com/products/48213.jpg",
 					"substitution": "SIMILAR"
 				}
 			}
@@ -68,6 +69,7 @@
 					"unitPrice": "1.50",
 					"currency": "USD",
 					"title": "Fresh Milk 1L",
+					"imageUrl": "https://cdn.example.com/products/48213.jpg",
 					"substitution": "SPECIFIC",
 					"substituteItemId": "7309009"
 				}

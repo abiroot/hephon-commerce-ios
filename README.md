@@ -207,7 +207,7 @@ All run on the main actor.
 | Callback | When | You get |
 |---|---|---|
 | `onReady` | the chat is open and listening | store, resumed conversation, capabilities |
-| `onItemAdded` / `onItemUpdated` / `onItemRemoved` | a basket line changed (by the agent, the shopper, or your snapshot) | `CartItemEvent`: `item.itemId`, `item.catalogId`, `quantity`, `previousQuantity`, `unitPrice`, `currency`, `origin` |
+| `onItemAdded` / `onItemUpdated` / `onItemRemoved` | a basket line changed (by the agent, the shopper, or your snapshot) | `CartItemEvent`: `item.itemId`, `item.catalogId`, `quantity`, `previousQuantity`, `unitPrice`, `currency`, `title`, `imageUrl` (the main image, when the product has one; since 2.1.0), `origin` |
 | `onCartCleared` | the basket was emptied | the removed lines, each with `itemId` and `catalogId` |
 | `onCheckout` | the shopper tapped checkout | `CartHandoff` with every line in your ids (`itemId`, `catalogId`), total, currency, substitutions |
 | `onHandoff` | the agent passed the conversation to a person | conversation id, reason |

@@ -31,6 +31,8 @@ public struct CartItem: Sendable, Decodable, Equatable {
     public let unitPrice: String
     public let currency: String
     public let title: String
+    /// The product's main image, an absolute URL, when it has one. Since 2.1.0.
+    public let imageUrl: String?
     /// `SIMILAR`, `SPECIFIC` or `NONE` when the shopper chose one.
     public let substitution: String?
     /// The item the shopper accepts instead, by its id in the same store, when `substitution`

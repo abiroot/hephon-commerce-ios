@@ -1,3 +1,9 @@
+## 2.1.0
+
+- `CartItem.imageUrl`: the product's main image, a full URL, on every cart event
+  (`onItemAdded`, `onItemUpdated`, `onItemRemoved` and each line of `onCartCleared`). Nil when
+  the product has no image. Updating from 2.0.0 needs no code change.
+
 ## 2.0.0
 
 Breaking:

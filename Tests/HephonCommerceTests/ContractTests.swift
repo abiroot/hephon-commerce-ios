@@ -36,6 +36,7 @@ final class BridgeContractTests: XCTestCase {
         XCTAssertEqual(added.item.unitPrice, "1.50")
         XCTAssertEqual(added.item.substitution, "SIMILAR")
         XCTAssertNil(added.item.substituteItemId)
+        XCTAssertEqual(added.item.imageUrl, "https://cdn.example.com/products/48213.jpg")
 
         guard case let .cartItem(.updated, updated) = parsed[3].message else {
             return XCTFail("not item_updated: \(parsed[3])")
@@ -51,6 +52,8 @@ final class BridgeContractTests: XCTestCase {
         }
         XCTAssertEqual(removed.origin, .host)
         XCTAssertEqual(removed.item.quantity, 0)
+        // A product with no image carries none.
+        XCTAssertNil(removed.item.imageUrl)
         XCTAssertEqual(removed.item.itemId, "7309008")
         XCTAssertEqual(removed.item.catalogId, "48213")
 
