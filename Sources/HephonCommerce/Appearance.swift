@@ -101,6 +101,16 @@ public struct HephonAppearance: Sendable, Equatable {
     public let showAssistantName: Bool?
     /// The suggested first messages on the welcome screen. Since 2.0.0.
     public let showStarters: Bool?
+    /// The welcome screen's title, line and suggestions. Set it false when your app draws its
+    /// own first screen above the chat and sends what the shopper picks with `sendMessage`.
+    /// Since 2.2.0.
+    public let showWelcome: Bool?
+    /// A back arrow before the logo that closes the chat (`onClose`): for a chat opened as a
+    /// full page (`HephonAgentViewController(presentation: .fullScreen)`). Since 2.2.0.
+    public let showBack: Bool?
+    /// "Powered by Hephon". Takes effect only where Hephon allows the retailer to hide it.
+    /// Since 2.2.0.
+    public let showPoweredBy: Bool?
     /// `true` hides "Help with an order". This and the next two are named `hide` because that
     /// is all an app can do: what the retailer has switched off stays off. Since 2.0.0.
     public let hideOrderHelp: Bool?
@@ -148,6 +158,9 @@ public struct HephonAppearance: Sendable, Equatable {
         addFromCards: Bool? = nil,
         showAssistantName: Bool? = nil,
         showStarters: Bool? = nil,
+        showWelcome: Bool? = nil,
+        showBack: Bool? = nil,
+        showPoweredBy: Bool? = nil,
         hideOrderHelp: Bool? = nil,
         hideVoice: Bool? = nil,
         hideCall: Bool? = nil
@@ -200,6 +213,9 @@ public struct HephonAppearance: Sendable, Equatable {
         self.addFromCards = addFromCards
         self.showAssistantName = showAssistantName
         self.showStarters = showStarters
+        self.showWelcome = showWelcome
+        self.showBack = showBack
+        self.showPoweredBy = showPoweredBy
         self.hideOrderHelp = hideOrderHelp
         self.hideVoice = hideVoice
         self.hideCall = hideCall
@@ -240,7 +256,8 @@ public struct HephonAppearance: Sendable, Equatable {
         "buttons", "bubble", "font", "fontFamily", "starterStyle",
         "showHeader", "showLogo", "showBasket", "showBasketButton", "showBasketBar",
         "showCheckout", "showNewChat", "showFollowUps", "showSteps", "productSheet", "addFromCards",
-        "showAssistantName", "showStarters", "hideOrderHelp", "hideVoice", "hideCall",
+        "showAssistantName", "showStarters", "showWelcome", "showBack", "showPoweredBy",
+        "hideOrderHelp", "hideVoice", "hideCall",
     ]
 
     /// The overrides that are set, in the order of `keys`.
@@ -257,7 +274,8 @@ public struct HephonAppearance: Sendable, Equatable {
             flag(showHeader), flag(showLogo), flag(showBasket), flag(showBasketButton), flag(showBasketBar),
             flag(showCheckout), flag(showNewChat), flag(showFollowUps), flag(showSteps), flag(productSheet),
             flag(addFromCards),
-            flag(showAssistantName), flag(showStarters), flag(hideOrderHelp), flag(hideVoice), flag(hideCall),
+            flag(showAssistantName), flag(showStarters), flag(showWelcome), flag(showBack), flag(showPoweredBy),
+            flag(hideOrderHelp), flag(hideVoice), flag(hideCall),
         ]).compactMap { key, value in value.map { (key, $0) } }
     }
 
@@ -297,6 +315,9 @@ public struct HephonAppearance: Sendable, Equatable {
             addFromCards: other.addFromCards ?? addFromCards,
             showAssistantName: other.showAssistantName ?? showAssistantName,
             showStarters: other.showStarters ?? showStarters,
+            showWelcome: other.showWelcome ?? showWelcome,
+            showBack: other.showBack ?? showBack,
+            showPoweredBy: other.showPoweredBy ?? showPoweredBy,
             hideOrderHelp: other.hideOrderHelp ?? hideOrderHelp,
             hideVoice: other.hideVoice ?? hideVoice,
             hideCall: other.hideCall ?? hideCall

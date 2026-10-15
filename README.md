@@ -6,10 +6,10 @@ origin, and turns everything it does to the basket into typed callbacks in **you
 ids**, so your app's cart and checkout stay in charge.
 
 - `HephonAgentController`: one chat for one shopper (launch token or code, callbacks, cart
-  snapshot, appearance, text, focus). An `ObservableObject` with `@Published pageState`. Call
+  snapshot, appearance, text, messages and suggestions, focus). An `ObservableObject` with `@Published pageState`. Call
   `preload()` and the chat is loaded before the shopper taps, and stays loaded between opens.
 - `HephonAgentViewController`: the chat with loading and retry states. Presented, it is a
-  full-height sheet with a grabber.
+  full-height sheet with a grabber, or a full page with `presentation: .fullScreen`.
 - `HephonAgentView`: the same for SwiftUI, for `.sheet` or a screen of its own.
 
 iOS 15 or later, Xcode 16 or later. No dependencies.
@@ -22,14 +22,14 @@ iOS 15 or later, Xcode 16 or later. No dependencies.
 https://github.com/abiroot/hephon-commerce-ios.git
 ```
 
-set Dependency Rule to **Up to Next Major Version** from `2.0.0`, and add `HephonCommerce`
+set Dependency Rule to **Up to Next Major Version** from `2.2.0`, and add `HephonCommerce`
 to your app target.
 
 **Package.swift:**
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/abiroot/hephon-commerce-ios.git", from: "2.0.0"),
+    .package(url: "https://github.com/abiroot/hephon-commerce-ios.git", from: "2.2.0"),
 ],
 targets: [
     .target(name: "YourApp", dependencies: [
@@ -46,7 +46,7 @@ The retailer's **Install** screen in Hephon shows the same steps with the latest
 - Package.swift: `swift package update`.
 
 Both stay within your major version. To cross one, read CHANGELOG.md (also on the Install
-screen), then raise the rule's lower bound (`from: "2.0.0"`). The Install screen shows which
+screen), then raise the rule's lower bound (`from: "2.2.0"`). The Install screen shows which
 version your app runs and says when an update is out.
 
 ### Voice (optional)
@@ -215,7 +215,8 @@ All run on the main actor.
 | `onSessionExpired` | the chat session ended | return a fresh launch token to continue in place, or nil (a throw counts as nil, and the next expiry asks again). After three refused tokens in a row (asked again after 2 s and 4 s) the controller stops asking |
 | `onMicrophonePermission` | the chat wants the microphone for voice | return whether iOS granted it; anything else denies |
 | `onTiming` | the chat was shown and is usable | `open` in ms, `preloaded` |
-| `onClose` | the chat asked to close (web widget today) | |
+| `onStateChange` | the chat's screen, its busy state or its basket changed (since 2.2.0) | `HephonChatState`: `view` (`.welcome`, `.conversation`), `busy`, `basketOpen`, `itemCount`, `conversationId` |
+| `onClose` | the shopper tapped the chat's back arrow (`showBack`) | nothing. Without it, the view closes itself (see Open it as a full page) |
 
 Events are delivered **at least once**: the package drops repeats by message id, and a cart
 change's id is the same as the signed webhook's `webhook-id`, so a server that also takes
@@ -268,8 +269,81 @@ controller.sendCartSnapshot(cart.lines.map { CartSnapshotItem(itemId: $0.id, qua
 
 - `setAppearance(HephonAppearance(...))`: restyles the open chat, see Appearance below.
 - `setText(HephonText(...))`: changes the open chat's words, see Text below.
+- `sendMessage`, `newChat`, `openBasket`, `closeBasket`, `setStarters`, `setLocale`,
+  `setRestrictions`: steer the chat, see Control the chat below.
 
 Messages sent before the chat is ready are held and delivered on `ready`.
+
+## Control the chat
+
+Since 2.2.0 your app can drive the open chat and follow it:
+
+```swift
+// Sent as the shopper's message, as if typed. Dropped while a reply is on its way.
+controller.sendMessage("Snacks for a movie night")
+controller.newChat()                       // a new conversation with an empty chat basket
+controller.openBasket()                    // and closeBasket()
+
+// The welcome screen's suggestions, in place of the retailer's (up to six). Tapping one sends
+// its prompt, or its label. An empty list brings the retailer's back.
+controller.setStarters([
+    HephonStarter(label: "Breakfast for 4"),
+    HephonStarter(label: "Iftar essentials", prompt: "I need everything for an iftar for 6 people"),
+])
+
+// The shopper changed your app's language while the chat is loaded.
+controller.setLocale("ar-AE")
+
+// Kinds this chat never shows, added to the retailer's.
+controller.setRestrictions([.alcohol, .alcoholFree])
+
+controller.onStateChange = { state in
+    header.showsBackToWelcome = state.view == .conversation
+    header.badge = state.itemCount
+    sendButton.isEnabled = !state.busy
+}
+```
+
+- `starters:` and `restrictions:` can also be passed to `HephonAgentController(...)`. Like
+  text, they are sent once the chat is ready, never on the chat URL.
+- The last starters, restrictions and `setLocale` are sent again each time the chat loads
+  again, so a reload keeps them. Messages, new chats and the basket are not.
+- `sendMessage`, `setStarters` and `setLocale` return false (`@discardableResult`) and send
+  nothing for what the chat would refuse: a message that is empty or over 2000 characters,
+  more than six suggestions or one whose label is not 1 to 60 characters (`isValid`), a
+  locale that is not a BCP 47 tag (`HostMessage.isLocale`).
+- `HephonRestriction` is `.alcohol`, `.alcoholFree`, `.pork` or `.tobacco`. What the retailer
+  excludes stays excluded whatever your app sends.
+- Starters, like appearance and text, are ignored when the retailer switched app changes off
+  in **Configure**; `onReady`'s `capabilities` then does not list `"starters"`.
+- To draw your own first screen above the chat, open it with
+  `HephonAppearance(showWelcome: false)` and send what the shopper picks with `sendMessage`.
+
+## Open it as a full page
+
+The chat can take the whole screen, with its own back arrow instead of a sheet's grabber.
+Open it with `showBack: true` and keep the header (`showHeader` left as the retailer set it):
+
+```swift
+let controller = HephonAgentController(
+    organization: "your-retailer",
+    launch: .token(launchToken),
+    appearance: HephonAppearance(showBack: true)
+)
+presenter.present(HephonAgentViewController(controller: controller, presentation: .fullScreen), animated: true)
+```
+
+SwiftUI:
+
+```swift
+.fullScreenCover(item: $assistant) { HephonAgentView(controller: $0) }
+```
+
+The back arrow posts `close`. When `onClose` is nil the view closes itself:
+`HephonAgentViewController` is dismissed (or popped, when you pushed it on a navigation
+controller) and `HephonAgentView` closes with SwiftUI's dismiss. Set `onClose` to close it
+your own way. Full screen, the chat starts below the status bar; its message box keeps clear
+of the home indicator.
 
 ## Appearance
 
@@ -334,6 +408,9 @@ controller.setAppearance(HephonAppearance(scheme: .light, showBasket: false))
 | `addFromCards` | a product card has its own add button |
 | `showAssistantName` | the name above each reply |
 | `showStarters` | the suggested first messages on the welcome screen |
+| `showWelcome` | the welcome screen's title, line and suggestions. `false` when your app draws its own first screen (since 2.2.0) |
+| `showBack` | a back arrow before the logo that closes the chat, for a chat opened as a full page (since 2.2.0) |
+| `showPoweredBy` | "Powered by Hephon"; takes effect only where Hephon allows the retailer to hide it (since 2.2.0) |
 | `hideOrderHelp` | `true` hides "Help with an order" |
 | `hideVoice` | `true` hides the microphone: voice messages and dictation |
 | `hideCall` | `true` hides the live voice call |
@@ -429,7 +506,7 @@ The Install screen has the signing code for Node, and the Flutter package's READ
   lists every event with its open time. Open `Example/HephonCommerceExample.xcodeproj`, run
   it on a simulator, and paste a test code.
 - `xcodebuild test -scheme HephonCommerce -destination 'platform=iOS Simulator,name=iPhone 17'`
-  runs the contract tests (the bridge, host and appearance fixtures every Hephon SDK shares) and the
+  runs the contract tests (the bridge, host, appearance and control fixtures every Hephon SDK shares) and the
   controller tests.
 - On an iOS 18.4 to 18.x simulator, an app whose deployment target is older than the
   simulator's iOS stops at launch with `Library not loaded: /usr/lib/swift/libswiftWebKit.dylib`.

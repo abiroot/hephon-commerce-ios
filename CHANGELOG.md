@@ -1,3 +1,37 @@
+## 2.2.0
+
+Your app can now steer the open chat, follow what it is doing, and open it as a full page.
+Updating from 2.1.0 needs no code change.
+
+- Steer the chat: `sendMessage(_:)` sends a message as the shopper, as if typed (from your
+  own suggestions or an "Ask about this" button); `newChat()` starts a new conversation;
+  `openBasket()` and `closeBasket()` open and close the chat's basket.
+- `setStarters(_:)` and the `starters:` option: the welcome screen's suggestions, up to six
+  `HephonStarter(label:prompt:)`, in place of the retailer's. An empty list brings the
+  retailer's back. Ignored when the retailer switched app changes off.
+- `setLocale(_:)`: the chat's language when the shopper changes your app's language while the
+  chat is loaded (its own words, and the reply language for a message that could be either).
+- `setRestrictions(_:)` and the `restrictions:` option: kinds of product this chat never shows
+  (`HephonRestriction`: `.alcohol`, `.alcoholFree`, `.pork`, `.tobacco`), added to the
+  retailer's. An app can never show what the retailer hides.
+- The last starters, restrictions and `setLocale` are sent again each time the chat loads
+  again, like appearance and text, so a reload keeps them.
+- `onStateChange`: a `HephonChatState` whenever the chat changes: `view` (`.welcome` or
+  `.conversation`), `busy`, `basketOpen`, `itemCount` and `conversationId`.
+- `HephonAppearance`: three more flags, 39 in all. `showWelcome` (the welcome title, line and
+  suggestions: set it false when your app draws its own first screen), `showBack` (a back
+  arrow before the logo that closes the chat), `showPoweredBy` ("Powered by Hephon", where
+  Hephon allows the retailer to hide it).
+- Full page: `HephonAgentViewController(controller:presentation: .fullScreen)` covers the
+  screen with no grabber, the chat below the status bar. In SwiftUI, present `HephonAgentView`
+  with `.fullScreenCover`.
+- The back arrow posts `close`. With no `onClose`, `HephonAgentViewController` closes itself
+  (dismissed, or popped when pushed on a navigation controller) and `HephonAgentView` closes
+  with SwiftUI's dismiss. Set `onClose` to close it your own way.
+- `sendMessage`, `setStarters` and `setLocale` return false, and send nothing, for what the
+  chat would refuse: an empty message or one over 2000 characters, more than six suggestions
+  or one with an empty label, a locale that is not a BCP 47 tag.
+
 ## 2.1.0
 
 - `CartItem.imageUrl`: the product's main image, a full URL, on every cart event

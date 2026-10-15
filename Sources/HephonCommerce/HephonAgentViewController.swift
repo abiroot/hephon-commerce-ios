@@ -8,20 +8,43 @@ import WebKit
 ///
 ///     presenter.present(HephonAgentViewController(controller: controller), animated: true)
 ///
+/// or, with `presentation: .fullScreen`, a page of its own that the chat's back arrow
+/// (`HephonAppearance(showBack: true)`) closes. Pushed on a navigation controller it is a
+/// screen of the stack, and the back arrow pops it.
+///
 /// Dismissing it (or removing it from its parent) hides the chat when `preload()` was called on
 /// the controller, so the next open is immediate. Otherwise it disposes the controller.
 @MainActor
-public final class HephonAgentViewController: UIViewController {
+public final class HephonAgentViewController: UIViewController, HephonChatPresenter {
+    /// How the view is presented. Since 2.2.0.
+    public enum Presentation: Sendable, Equatable {
+        /// A sheet at full height with a grabber, the chat scrolling inside it.
+        case sheet
+        /// The whole screen, no grabber: the chat below the status bar, closed by its back
+        /// arrow (`showBack`) or your own button.
+        case fullScreen
+    }
+
     public let controller: HephonAgentController
+    /// How `present` shows this view. Since 2.2.0.
+    public let presentation: Presentation
+    /// Closes the view when the chat asks and the app set no `onClose`: `HephonAgentView` sets
+    /// SwiftUI's dismiss here.
+    var dismissChat: (@MainActor () -> Void)?
 
     private let loading = UIActivityIndicatorView(style: .large)
     private let failed = UIStackView()
     private var state: AnyCancellable?
     private weak var webView: WKWebView?
 
-    public init(controller: HephonAgentController) {
+    public init(controller: HephonAgentController, presentation: Presentation = .sheet) {
         self.controller = controller
+        self.presentation = presentation
         super.init(nibName: nil, bundle: nil)
+        if presentation == .fullScreen {
+            modalPresentationStyle = .fullScreen
+            return
+        }
         modalPresentationStyle = .pageSheet
         if let sheet = sheetPresentationController {
             sheet.detents = [.large()]
@@ -101,6 +124,28 @@ public final class HephonAgentViewController: UIViewController {
         return false
     }
 
+    /// The chat asked to close (its back arrow) and the app set no `onClose`: SwiftUI's dismiss
+    /// when the view is in SwiftUI; otherwise a pop when this view is pushed on a navigation
+    /// controller, and a dismiss when it (or the navigation controller it is the root of) is
+    /// presented. Anywhere else it stays: close it from `onClose`.
+    func closeChat() {
+        if let dismissChat {
+            dismissChat()
+            return
+        }
+        if let navigation = navigationController, navigation.viewControllers.count > 1,
+           navigation.topViewController === self
+        {
+            navigation.popViewController(animated: true)
+            return
+        }
+        let presented: UIViewController = navigationController?.viewControllers.first === self
+            ? navigationController ?? self : self
+        if presented.presentingViewController?.presentedViewController === presented {
+            presented.dismiss(animated: true)
+        }
+    }
+
     /// The view is gone. A kept chat stays loaded in its web view, outside any window.
     fileprivate func leave() {
         controller.viewDismissed(by: self)
@@ -109,11 +154,14 @@ public final class HephonAgentViewController: UIViewController {
         }
     }
 
+    /// Full screen, the chat starts below the status bar: its header does not leave room for
+    /// one. Its message box keeps clear of the home indicator by itself.
     private func fill(_ child: UIView, at index: Int? = nil) {
         child.translatesAutoresizingMaskIntoConstraints = false
         view.insertSubview(child, at: index ?? view.subviews.count)
+        let top = presentation == .fullScreen ? view.safeAreaLayoutGuide.topAnchor : view.topAnchor
         NSLayoutConstraint.activate([
-            child.topAnchor.constraint(equalTo: view.topAnchor),
+            child.topAnchor.constraint(equalTo: top),
             child.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             child.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             child.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -157,6 +205,11 @@ public final class HephonAgentViewController: UIViewController {
 ///
 ///     .sheet(isPresented: $open) { HephonAgentView(controller: controller) }
 ///
+/// As a full page, with the chat's back arrow (`HephonAppearance(showBack: true)`) to close it:
+///
+///     .fullScreenCover(item: $assistant) { HephonAgentView(controller: $0) }
+///
+/// The back arrow closes the view with SwiftUI's dismiss, unless the controller has an `onClose`.
 /// Leaving the view hides the chat when `preload()` was called on the controller, and disposes
 /// the controller otherwise.
 public struct HephonAgentView: UIViewControllerRepresentable {
@@ -166,11 +219,16 @@ public struct HephonAgentView: UIViewControllerRepresentable {
         self.controller = controller
     }
 
-    public func makeUIViewController(context _: Context) -> HephonAgentViewController {
-        HephonAgentViewController(controller: controller)
+    public func makeUIViewController(context: Context) -> HephonAgentViewController {
+        let viewController = HephonAgentViewController(controller: controller)
+        updateUIViewController(viewController, context: context)
+        return viewController
     }
 
-    public func updateUIViewController(_: HephonAgentViewController, context _: Context) {}
+    public func updateUIViewController(_ viewController: HephonAgentViewController, context: Context) {
+        let dismiss = context.environment.dismiss
+        viewController.dismissChat = { dismiss() }
+    }
 
     public static func dismantleUIViewController(_ viewController: HephonAgentViewController, coordinator _: Void) {
         viewController.leave()

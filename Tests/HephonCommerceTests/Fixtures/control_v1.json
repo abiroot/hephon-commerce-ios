@@ -1,0 +1,199 @@
+{
+	"$comment": "Since SDK 2.2.0: what an app can do with an open chat beyond its look (control.ts). Each host-to-page type is listed in ready.capabilities when the page takes it; `starters` only while the retailer allows app overrides.",
+	"pageToHost": [
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000001",
+			"type": "ready",
+			"ts": 1791374420000,
+			"data": {
+				"orgSlug": "adcoop",
+				"storeId": "branch-1",
+				"capabilities": [
+					"cart.snapshot",
+					"session.launch",
+					"theme",
+					"focus",
+					"visibility",
+					"chat.send",
+					"chat.new",
+					"basket",
+					"starters",
+					"locale",
+					"restrictions",
+					"state",
+					"appearance",
+					"text"
+				]
+			}
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000002",
+			"type": "state",
+			"ts": 1791374421000,
+			"data": {
+				"view": "welcome",
+				"busy": false,
+				"basketOpen": false,
+				"itemCount": 0
+			}
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000003",
+			"type": "state",
+			"ts": 1791374422000,
+			"data": {
+				"view": "conversation",
+				"busy": true,
+				"basketOpen": false,
+				"itemCount": 3,
+				"conversationId": "conv-1"
+			}
+		}
+	],
+	"hostToPage": [
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000010",
+			"type": "chat.send",
+			"ts": 1791374423000,
+			"data": {
+				"text": "Snacks for a movie night"
+			}
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000011",
+			"type": "chat.new",
+			"ts": 1791374424000,
+			"data": {}
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000012",
+			"type": "basket.open",
+			"ts": 1791374425000,
+			"data": {}
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000013",
+			"type": "basket.close",
+			"ts": 1791374426000,
+			"data": {}
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000014",
+			"type": "starters",
+			"ts": 1791374427000,
+			"data": {
+				"items": [
+					{
+						"label": "Breakfast for 4"
+					},
+					{
+						"label": "Iftar essentials",
+						"prompt": "I need everything for an iftar for 6 people"
+					},
+					{
+						"label": "وجبة خفيفة للأطفال"
+					}
+				]
+			}
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000015",
+			"type": "starters",
+			"ts": 1791374428000,
+			"data": {
+				"items": []
+			},
+			"$comment": "An empty list brings the retailer's own suggestions back."
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000016",
+			"type": "locale",
+			"ts": 1791374429000,
+			"data": {
+				"locale": "ar-AE"
+			}
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000017",
+			"type": "restrictions",
+			"ts": 1791374430000,
+			"data": {
+				"exclude": ["alcohol", "alcohol_free", "pork"]
+			}
+		}
+	],
+	"rejected": [
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000020",
+			"type": "chat.send",
+			"ts": 1791374431000,
+			"data": {
+				"text": "   "
+			},
+			"$comment": "Nothing to send."
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000021",
+			"type": "restrictions",
+			"ts": 1791374432000,
+			"data": {
+				"exclude": ["wine"]
+			},
+			"$comment": "Not a kind."
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000022",
+			"type": "locale",
+			"ts": 1791374433000,
+			"data": {
+				"locale": "arabic please"
+			}
+		},
+		{
+			"v": 1,
+			"id": "c0a1b2c3-0000-4000-8000-000000000023",
+			"type": "starters",
+			"ts": 1791374434000,
+			"data": {
+				"items": [
+					{
+						"label": "a"
+					},
+					{
+						"label": "b"
+					},
+					{
+						"label": "c"
+					},
+					{
+						"label": "d"
+					},
+					{
+						"label": "e"
+					},
+					{
+						"label": "f"
+					},
+					{
+						"label": "g"
+					}
+				]
+			},
+			"$comment": "Seven: at most six."
+		}
+	]
+}

@@ -42,6 +42,9 @@ private func appearance(_ data: [String: Any]) throws -> HephonAppearance {
         addFromCards: data["addFromCards"] as? Bool,
         showAssistantName: data["showAssistantName"] as? Bool,
         showStarters: data["showStarters"] as? Bool,
+        showWelcome: data["showWelcome"] as? Bool,
+        showBack: data["showBack"] as? Bool,
+        showPoweredBy: data["showPoweredBy"] as? Bool,
         hideOrderHelp: data["hideOrderHelp"] as? Bool,
         hideVoice: data["hideVoice"] as? Bool,
         hideCall: data["hideCall"] as? Bool
@@ -78,7 +81,8 @@ private let everything = HephonAppearance(
     showHeader: true, showLogo: false, showBasket: true, showBasketButton: false, showBasketBar: true,
     showCheckout: false, showNewChat: true, showFollowUps: false, showSteps: true, productSheet: false,
     addFromCards: true,
-    showAssistantName: false, showStarters: true, hideOrderHelp: false, hideVoice: true, hideCall: false
+    showAssistantName: false, showStarters: true, showWelcome: false, showBack: true, showPoweredBy: false,
+    hideOrderHelp: true, hideVoice: false, hideCall: true
 )
 
 /// appearance_v1.json: what an app may restyle in the chat it opens, since SDK 1.2.0.
@@ -98,14 +102,14 @@ final class AppearanceContractTests: XCTestCase {
 
         // Every key is a field: all set, all sent, in the fixture's order.
         let pairs = everything.pairs
-        XCTAssertEqual(pairs.count, 36)
+        XCTAssertEqual(pairs.count, 39)
         XCTAssertEqual(pairs.map(\.0), HephonAppearance.keys)
         XCTAssertEqual(pairs.map(\.1.query), [
             "auto", "#000001", "#000002", "#000003", "#000004", "square", "plain",
             "#000005", "#000006", "#000007", "#000008", "#000009", "#00000A", "#00000B", "#00000C",
             "pill", "soft", "manrope", "Avenir Next", "photos",
             "true", "false", "true", "false", "true", "false", "true", "false", "true", "false", "true",
-            "false", "true", "false", "true", "false",
+            "false", "true", "false", "true", "false", "true", "false", "true",
         ])
         // The colours are the fields that take #RRGGBB, the flags the ones sent as booleans.
         XCTAssertEqual(pairs.filter { $0.1.query.hasPrefix("#") }.map(\.0), fixture["colors"] as? [String])
@@ -160,6 +164,24 @@ final class AppearanceContractTests: XCTestCase {
             url.absoluteString,
             "\(hephon)/c/suppy?embed=ios&sdk=\(HephonCommerceSDK.version)&surfaceColor=%23F8FAFC&showBasket=false&addFromCards=true"
         )
+    }
+
+    /// The 2.2.0 flags go on the chat URL like every flag, `false` included.
+    func testWritesThe220FlagsOnTheURL() {
+        let url = HephonAgentController.chatURL(
+            host: HephonAgentController.defaultHost, organization: "suppy",
+            appearance: HephonAppearance(showStarters: true, showWelcome: false, showBack: true, showPoweredBy: false)
+        )
+        XCTAssertEqual(
+            url.absoluteString,
+            "\(hephon)/c/suppy?embed=ios&sdk=\(HephonCommerceSDK.version)&showStarters=true&showWelcome=false&showBack=true&showPoweredBy=false"
+        )
+        let merged = HephonAppearance(showWelcome: false, showBack: true)
+            .merging(HephonAppearance(showBack: false, showPoweredBy: true))
+        XCTAssertEqual(merged, HephonAppearance(showWelcome: false, showBack: false, showPoweredBy: true))
+        // And in the appearance message, as JSON booleans.
+        let json = HostMessage.appearance(merged).json()
+        XCTAssertTrue(json.contains(#""data":{"showBack":false,"showPoweredBy":true,"showWelcome":false}"#), json)
     }
 
     func testMergesWhatWasSetOverWhatWasSetBefore() {

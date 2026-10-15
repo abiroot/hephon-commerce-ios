@@ -4,7 +4,8 @@ import Foundation
 /// is `{v: 1, id, type, ts, data}`; `id` is the idempotency key (events arrive at least once).
 ///
 /// Mirrors the `@repo/embed` schemas. `Tests/HephonCommerceTests/Fixtures/bridge_v1.json` and
-/// `preload_v1.json` and `appearance_v1.json` are the shared contract both sides are tested against.
+/// `preload_v1.json`, `appearance_v1.json` and `control_v1.json` are the shared contract both sides
+/// are tested against.
 public let hephonBridgeVersion = 1
 
 /// Who changed the cart.
@@ -124,6 +125,36 @@ public struct HephonOpenTiming: Sendable, Decodable, Equatable {
     public let preloaded: Bool
 }
 
+/// What the chat is doing, for `HephonAgentController.onStateChange`: posted whenever it
+/// changes, so your app's own header or buttons can follow it. Since 2.2.0.
+public struct HephonChatState: Sendable, Decodable, Equatable {
+    /// Which screen the chat shows.
+    public enum View: String, Sendable, Decodable, CaseIterable {
+        /// The first screen, before any message.
+        case welcome
+        /// A conversation with at least one message.
+        case conversation
+    }
+
+    public let view: View
+    /// A reply is on its way. A `sendMessage` now is dropped.
+    public let busy: Bool
+    /// The chat's basket is open.
+    public let basketOpen: Bool
+    /// Units in the basket.
+    public let itemCount: Int
+    /// The conversation, once there is one.
+    public let conversationId: String?
+
+    public init(view: View, busy: Bool, basketOpen: Bool, itemCount: Int, conversationId: String? = nil) {
+        self.view = view
+        self.busy = busy
+        self.basketOpen = basketOpen
+        self.itemCount = itemCount
+        self.conversationId = conversationId
+    }
+}
+
 /// How a cart line changed: `cart.item_added`, `cart.item_updated` or `cart.item_removed`.
 public enum CartChange: Sendable, Equatable {
     case added, updated, removed
@@ -140,7 +171,7 @@ public enum PageMessage: Sendable, Equatable {
     case sessionExpired
     /// Web widget only; webviews ignore it.
     case resize(height: Double)
-    /// Web widget only: the chat's close button.
+    /// The chat's close button (web widget), or its back arrow (`showBack`, since 2.2.0).
     case close
 
     /// One message as the page sent it, with its envelope.
@@ -169,6 +200,8 @@ enum PageEvent: Sendable, Equatable {
     case painted
     /// The chat became usable after being shown. Since 1.1.0.
     case timing(HephonOpenTiming)
+    /// What the chat is doing changed. Since 2.2.0.
+    case state(HephonChatState)
 
     struct Envelope: Sendable, Equatable {
         let id: String
@@ -207,6 +240,8 @@ enum PageEvent: Sendable, Equatable {
         case "painted": event = .painted
         case "timing":
             event = data(HephonOpenTiming.self).flatMap { ($0.open ?? 0) >= 0 ? .timing($0) : nil }
+        case "state":
+            event = data(HephonChatState.self).flatMap { $0.itemCount >= 0 ? .state($0) : nil }
         default: break
         }
         return (event ?? message.map(PageEvent.message)).map {
@@ -297,6 +332,51 @@ public enum HephonScheme: String, Sendable, Encodable {
     case light, dark
 }
 
+/// A suggestion on the chat's welcome screen, for `HephonAgentController.setStarters`.
+/// Tapping it sends `prompt`, or `label` when there is none. Since 2.2.0.
+///
+/// Both are trimmed. A `label` of 1 to 60 characters and a `prompt` of 1 to 300 are what the
+/// chat takes: `setStarters` refuses a list with any other (`isValid`).
+public struct HephonStarter: Sendable, Equatable, Encodable {
+    /// What the suggestion says.
+    public let label: String
+    /// What tapping it sends as the shopper's message; `label` when nil.
+    public let prompt: String?
+
+    public init(label: String, prompt: String? = nil) {
+        self.label = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.prompt = prompt?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// At most this many suggestions on the welcome screen.
+    public static let maxCount = 6
+
+    /// Whether the chat takes this suggestion: a label of 1 to 60 characters, and a prompt of
+    /// 1 to 300 when there is one.
+    public var isValid: Bool {
+        fits(label, 60) && (prompt.map { fits($0, 300) } ?? true)
+    }
+}
+
+/// A kind of product a chat never shows, for `HephonAgentController.setRestrictions`. What
+/// your app excludes is added to what the retailer excludes: an app can never show a kind the
+/// retailer hides. Since 2.2.0.
+public enum HephonRestriction: String, Sendable, Encodable, CaseIterable {
+    case alcohol
+    /// Alcohol-free versions of alcoholic drinks (alcohol-free beer, wine).
+    case alcoholFree = "alcohol_free"
+    case pork
+    case tobacco
+}
+
+/// The longest message `HephonAgentController.sendMessage` sends. Since 2.2.0.
+public let hephonMaxMessageLength = 2000
+
+/// Whether `value` is 1 to `max` characters, counted as the chat counts them (UTF-16 units).
+private func fits(_ value: String, _ max: Int) -> Bool {
+    !value.isEmpty && value.utf16.count <= max
+}
+
 /// A message from your app to the chat page.
 public struct HostMessage: Sendable, Equatable {
     public let type: String
@@ -312,6 +392,11 @@ public struct HostMessage: Sendable, Equatable {
         case visibility(shown: Bool, at: Int64?)
         case appearance(HephonAppearance)
         case text(HephonText)
+        case chatSend(String)
+        case empty
+        case starters([HephonStarter])
+        case locale(String)
+        case restrictions([HephonRestriction])
     }
 
     private init(_ type: String, _ data: Body, id: String?, timestamp: Date?) {
@@ -375,6 +460,70 @@ public struct HostMessage: Sendable, Equatable {
         HostMessage("text", .text(text), id: id, timestamp: timestamp)
     }
 
+    /// `text` sent as the shopper's message, as if typed. Nil when it is empty once trimmed or
+    /// longer than `hephonMaxMessageLength`. The chat drops it while a reply is on its way
+    /// (`HephonChatState.busy`). Since 2.2.0.
+    public static func chatSend(_ text: String, id: String? = nil, timestamp: Date? = nil) -> HostMessage? {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard fits(text, hephonMaxMessageLength) else {
+            return nil
+        }
+        return HostMessage("chat.send", .chatSend(text), id: id, timestamp: timestamp)
+    }
+
+    /// Starts a new conversation with an empty chat basket (your own cart is not touched). Since 2.2.0.
+    public static func chatNew(id: String? = nil, timestamp: Date? = nil) -> HostMessage {
+        HostMessage("chat.new", .empty, id: id, timestamp: timestamp)
+    }
+
+    /// Opens the chat's basket. Since 2.2.0.
+    public static func basketOpen(id: String? = nil, timestamp: Date? = nil) -> HostMessage {
+        HostMessage("basket.open", .empty, id: id, timestamp: timestamp)
+    }
+
+    /// Closes the chat's basket. Since 2.2.0.
+    public static func basketClose(id: String? = nil, timestamp: Date? = nil) -> HostMessage {
+        HostMessage("basket.close", .empty, id: id, timestamp: timestamp)
+    }
+
+    /// The welcome screen's suggestions, in place of the retailer's; an empty list brings the
+    /// retailer's back. Nil for more than `HephonStarter.maxCount`, or one that is not
+    /// `isValid`. Ignored when the retailer switched app changes off (`ready` then lists no
+    /// `starters` capability). Since 2.2.0.
+    public static func starters(
+        _ items: [HephonStarter], id: String? = nil, timestamp: Date? = nil
+    ) -> HostMessage? {
+        guard items.count <= HephonStarter.maxCount, items.allSatisfy(\.isValid) else {
+            return nil
+        }
+        return HostMessage("starters", .starters(items), id: id, timestamp: timestamp)
+    }
+
+    /// The app's language, a BCP 47 tag like `ar` or `ar-AE`: the chat's own words, and the
+    /// reply language for a message that could be either. Nil for anything that is not a
+    /// tag. Since 2.2.0.
+    public static func locale(_ locale: String, id: String? = nil, timestamp: Date? = nil) -> HostMessage? {
+        guard isLocale(locale) else {
+            return nil
+        }
+        return HostMessage("locale", .locale(locale), id: id, timestamp: timestamp)
+    }
+
+    /// Kinds of product this chat never shows, added to the retailer's. Each kind is sent once.
+    /// Since 2.2.0.
+    public static func restrictions(
+        _ kinds: [HephonRestriction], id: String? = nil, timestamp: Date? = nil
+    ) -> HostMessage {
+        var seen = Set<HephonRestriction>()
+        let unique = kinds.filter { seen.insert($0).inserted }
+        return HostMessage("restrictions", .restrictions(unique), id: id, timestamp: timestamp)
+    }
+
+    /// Whether `value` is a BCP 47 tag the chat takes, like `ar` or `ar-AE`.
+    public static func isLocale(_ value: String) -> Bool {
+        value.range(of: "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$", options: .regularExpression) != nil
+    }
+
     /// The envelope as JSON text, what the page's `window.hephon.receive` takes.
     public func json() -> String {
         let envelope = Outgoing(
@@ -406,7 +555,7 @@ private struct Outgoing: Encodable {
 
 extension HostMessage.Body: Encodable {
     private enum Keys: String, CodingKey {
-        case items, launchToken, scheme, shown, at
+        case items, launchToken, scheme, shown, at, text, locale, exclude
     }
 
     func encode(to encoder: Encoder) throws {
@@ -421,6 +570,11 @@ extension HostMessage.Body: Encodable {
             try container.encodeIfPresent(at, forKey: .at)
         case let .appearance(appearance): try appearance.encodeData(to: encoder)
         case let .text(text): try text.encodeData(to: encoder)
+        case let .chatSend(text): try container.encode(text, forKey: .text)
+        case .empty: break
+        case let .starters(items): try container.encode(items, forKey: .items)
+        case let .locale(locale): try container.encode(locale, forKey: .locale)
+        case let .restrictions(kinds): try container.encode(kinds, forKey: .exclude)
         }
     }
 }

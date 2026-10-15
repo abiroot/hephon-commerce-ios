@@ -48,6 +48,13 @@ struct ShopView: View {
                             launch = ""
                         }
                     }
+                    // Opens the chat and sends a message for the shopper, as if typed.
+                    Button("Ask for snacks") {
+                        shop.open(chat, keep: keep, asking: "Snacks for a movie night")
+                        if !keep {
+                            launch = ""
+                        }
+                    }
                     if let problem = shop.problem {
                         Text(problem).foregroundStyle(.red)
                     }
@@ -124,7 +131,7 @@ final class Shop: ObservableObject {
         keeping(chat)?.preload()
     }
 
-    func open(_ chat: Chat, keep: Bool) {
+    func open(_ chat: Chat, keep: Bool, asking message: String? = nil) {
         let controller: HephonAgentController?
         if keep {
             controller = keeping(chat)
@@ -139,6 +146,9 @@ final class Shop: ObservableObject {
         }
         // Start the agent from what the shopper already has: held until the chat is ready.
         controller.sendCartSnapshot(cart.map { CartSnapshotItem(itemId: $0.key, quantity: $0.value) })
+        if let message {
+            controller.sendMessage(message)
+        }
         presented = controller
     }
 
@@ -168,11 +178,21 @@ final class Shop: ObservableObject {
             organization: chat.organization.trimmingCharacters(in: .whitespaces),
             // A launch token is a JWT: three dot-separated parts.
             launch: value.isEmpty ? nil : value.split(separator: ".").count == 3 ? .token(value) : .code(value),
-            locale: Locale.preferredLanguages.first
+            locale: Locale.preferredLanguages.first,
+            // The welcome screen's suggestions, in place of the retailer's.
+            starters: [
+                HephonStarter(label: "Breakfast for 4"),
+                HephonStarter(label: "Movie night", prompt: "Snacks for a movie night for 4 people"),
+            ]
         )
         controller.onReady = { [weak self] ready in
             self?.readies += 1
             self?.record("ready: store \(ready.storeId)")
+        }
+        controller.onStateChange = { [weak self] state in
+            self?.record(
+                "onStateChange \(state.view.rawValue)\(state.busy ? ", busy" : ""), basket \(state.itemCount)\(state.basketOpen ? " (open)" : "")"
+            )
         }
         controller.onTiming = { [weak self] timing in
             self?.timings.append(timing)

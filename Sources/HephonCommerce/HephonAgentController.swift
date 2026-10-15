@@ -83,7 +83,9 @@ public final class HephonAgentController: ObservableObject {
     /// reused token), it reports the session expired again. The controller then asks again
     /// after 2 s and 4 s, and after three refused tokens in a row it stops asking.
     public var onSessionExpired: (@MainActor () async throws -> String?)?
-    /// The chat asked to close (web widget only today).
+    /// The chat asked to close: the shopper tapped its back arrow (`showBack`). When nil,
+    /// `HephonAgentViewController` and `HephonAgentView` close themselves; set it to close the
+    /// chat your own way.
     public var onClose: (@MainActor () -> Void)?
     /// The page wants the microphone for voice. Ask iOS (`NSMicrophoneUsageDescription` in
     /// Info.plist) and return whether it was granted. Without it, or when it throws, the
@@ -91,6 +93,9 @@ public final class HephonAgentController: ObservableObject {
     public var onMicrophonePermission: (@MainActor () async throws -> Bool)?
     /// How long the chat took to open, each time it is shown.
     public var onTiming: (@MainActor (HephonOpenTiming) -> Void)?
+    /// What the chat is doing changed: its screen, whether a reply is on its way, the basket
+    /// and its item count. Since 2.2.0.
+    public var onStateChange: (@MainActor (HephonChatState) -> Void)?
 
     /// Message ids remembered for deduplication.
     static let seenLimit = 500
@@ -128,6 +133,12 @@ public final class HephonAgentController: ObservableObject {
     private var keptAppearance: HephonAppearance?
     /// The text passed at open and everything `setText` sent, merged, for a page loaded later.
     private var keptText: HephonText?
+    /// The last suggestions set (at open or with `setStarters`), for a page loaded later.
+    private var keptStarters: [HephonStarter]?
+    /// The last restrictions set (at open or with `setRestrictions`), for a page loaded later.
+    private var keptRestrictions: [HephonRestriction]?
+    /// The last locale `setLocale` sent. The one passed at open is on the chat URL.
+    private var keptLocale: String?
     private var delivery: Task<Void, Never>?
     private var seen = Set<String>()
     private var seenOrder: [String] = []
@@ -171,6 +182,8 @@ public final class HephonAgentController: ObservableObject {
     /// `appearance` restyles the chat from its first paint, and stays for every later load.
     /// `text` changes its words: it is sent once the chat is ready, and again after every later
     /// load. Both are ignored when the retailer switched app changes off in Configure.
+    /// `starters` and `restrictions` are sent the same way as `text` (see `setStarters` and
+    /// `setRestrictions`).
     public init(
         host: URL = HephonAgentController.defaultHost,
         organization: String,
@@ -179,6 +192,8 @@ public final class HephonAgentController: ObservableObject {
         locale: String? = nil,
         appearance: HephonAppearance? = nil,
         text: HephonText? = nil,
+        starters: [HephonStarter]? = nil,
+        restrictions: [HephonRestriction]? = nil,
         customDomains: [URL] = []
     ) {
         let url = Self.chatURL(
@@ -193,6 +208,12 @@ public final class HephonAgentController: ObservableObject {
             // Never on the URL: held with the other messages until the chat is ready.
             keptText = text
             outbox.append(.text(text))
+        }
+        if let starters {
+            setStarters(starters)
+        }
+        if let restrictions {
+            setRestrictions(restrictions)
         }
     }
 
@@ -261,6 +282,91 @@ public final class HephonAgentController: ObservableObject {
         }
         keptText = (keptText ?? HephonText()).merging(text)
         send(.text(text))
+    }
+
+    /// Sends `text` as the shopper's message, as if they typed it: for a suggestion your app
+    /// draws itself (with `showWelcome: false`), or a "Ask about this" button on a product.
+    /// Held until the chat is ready, like every message; the chat drops it while a reply is on
+    /// its way (`HephonChatState.busy`). Returns false, and sends nothing, when `text` is empty
+    /// once trimmed or longer than `hephonMaxMessageLength`. Since 2.2.0.
+    @discardableResult
+    public func sendMessage(_ text: String) -> Bool {
+        if disposed {
+            return false
+        }
+        guard let message = HostMessage.chatSend(text) else {
+            Self.log.warning("sendMessage: a message is 1 to \(hephonMaxMessageLength) characters; nothing sent")
+            return false
+        }
+        send(message)
+        return true
+    }
+
+    /// Starts a new conversation with an empty chat basket (your own cart is not touched). Since 2.2.0.
+    public func newChat() {
+        send(.chatNew())
+    }
+
+    /// Opens the chat's basket. Since 2.2.0.
+    public func openBasket() {
+        send(.basketOpen())
+    }
+
+    /// Closes the chat's basket. Since 2.2.0.
+    public func closeBasket() {
+        send(.basketClose())
+    }
+
+    /// The welcome screen's suggestions, in place of the retailer's: up to six, each sending
+    /// its `prompt` (or its `label`) when tapped. An empty list brings the retailer's back.
+    /// Held until the chat is ready, and sent again after every later load, so a reload keeps
+    /// them. Ignored when the retailer switched app changes off in Configure (`ready` then
+    /// lists no `starters` capability). Returns false, and changes nothing, for more than six
+    /// or one that is not `HephonStarter.isValid`. Since 2.2.0.
+    @discardableResult
+    public func setStarters(_ starters: [HephonStarter]) -> Bool {
+        if disposed {
+            return false
+        }
+        guard let message = HostMessage.starters(starters) else {
+            Self.log.warning(
+                "setStarters: up to \(HephonStarter.maxCount) suggestions, each a label of 1 to 60 characters and a prompt of 1 to 300; nothing sent"
+            )
+            return false
+        }
+        keptStarters = starters
+        send(message)
+        return true
+    }
+
+    /// The chat's language, a BCP 47 tag like `ar` or `ar-AE`: its own words (English, Arabic or
+    /// French), and the reply language for a message that could be either. Use it when the
+    /// shopper changes your app's language while the chat is loaded; the `locale` passed at
+    /// open is on the chat URL. Sent again after every later load. Returns false, and changes
+    /// nothing, for a value that is not a tag (`HostMessage.isLocale`). Since 2.2.0.
+    @discardableResult
+    public func setLocale(_ locale: String) -> Bool {
+        if disposed {
+            return false
+        }
+        guard let message = HostMessage.locale(locale) else {
+            Self.log.warning("setLocale: \(locale, privacy: .public) is not a BCP 47 tag like ar or ar-AE; nothing sent")
+            return false
+        }
+        keptLocale = locale
+        send(message)
+        return true
+    }
+
+    /// Kinds of product this chat never shows, added to what the retailer excludes: an app
+    /// can never show a kind the retailer hides. Replaces what your app set before (an empty
+    /// list leaves only the retailer's). Sent again after every later load. Since 2.2.0.
+    public func setRestrictions(_ kinds: [HephonRestriction]) {
+        if disposed {
+            return
+        }
+        keptRestrictions = kinds
+        send(.restrictions(kinds))
     }
 
     /// Puts the cursor in the chat's message box. Call it after showing: a hidden chat ignores it.
@@ -426,6 +532,7 @@ public final class HephonAgentController: ObservableObject {
                 pageState = .loaded
             }
         case let .timing(timing): onTiming?(timing)
+        case let .state(state): onStateChange?(state)
         case let .message(message): handle(message)
         }
     }
@@ -433,8 +540,9 @@ public final class HephonAgentController: ObservableObject {
     private func handle(_ message: PageMessage) {
         switch message {
         case let .ready(ready):
-            // A page after the first one starts from the chat URL: it has none of the text and
-            // only the appearance the chat opened with.
+            // A page after the first one starts from the chat URL: it has none of the text, the
+            // suggestions or the restrictions, and only the appearance and locale the chat
+            // opened with.
             let again = self.ready != nil
             self.ready = ready
             hasSession = true
@@ -454,6 +562,15 @@ public final class HephonAgentController: ObservableObject {
                 if let keptAppearance {
                     deliver(.appearance(keptAppearance))
                 }
+                if let keptLocale, let message = HostMessage.locale(keptLocale) {
+                    deliver(message)
+                }
+                if let keptRestrictions {
+                    deliver(.restrictions(keptRestrictions))
+                }
+                if let keptStarters, let message = HostMessage.starters(keptStarters) {
+                    deliver(message)
+                }
             }
             let pending = outbox
             outbox.removeAll()
@@ -470,7 +587,12 @@ public final class HephonAgentController: ObservableObject {
         case let .handoff(handoff): onHandoff?(handoff)
         case let .openProduct(product): onOpenProduct?(product)
         case .sessionExpired: renewSession()
-        case .close: onClose?()
+        case .close:
+            if let onClose {
+                onClose()
+            } else if shown {
+                (presenter as? HephonChatPresenter)?.closeChat()
+            }
         case .resize: break
         }
     }
@@ -805,6 +927,12 @@ public final class HephonAgentController: ObservableObject {
 
 /// One chat per controller: `.sheet(item: $assistant) { HephonAgentView(controller: $0) }`.
 extension HephonAgentController: Identifiable {}
+
+/// A view showing the chat, which closes itself when the chat asks and the app set no `onClose`.
+@MainActor
+protocol HephonChatPresenter: AnyObject {
+    func closeChat()
+}
 
 /// The web view as the controller drives it: `WebKitHost` in apps, a fake in tests.
 @MainActor
