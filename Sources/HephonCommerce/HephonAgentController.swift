@@ -46,8 +46,8 @@ public final class HephonAgentController: ObservableObject {
     /// Loading, loaded or failed: what `HephonAgentViewController` shows over the page.
     @Published public private(set) var pageState: HephonPageState = .loading
 
-    /// Lets Safari's Web Inspector attach (iOS 16.4+). On in debug builds. Set it before the
-    /// view appears.
+    /// Lets Safari's Web Inspector attach (iOS 16.4+). On in debug builds and with `debug`. Set
+    /// it before the view appears.
     public var isInspectable: Bool = {
         #if DEBUG
             true
@@ -96,6 +96,11 @@ public final class HephonAgentController: ObservableObject {
     /// What the chat is doing changed: its screen, whether a reply is on its way, the basket
     /// and its item count. Since 2.2.0.
     public var onStateChange: (@MainActor (HephonChatState) -> Void)?
+    /// Receives each `debug` line instead of the system log, for your own logger. Since 2.3.0.
+    public var onLog: (@MainActor (String) -> Void)?
+
+    /// Logs what the chat does; see `init`. Since 2.3.0.
+    public let debug: Bool
 
     /// Message ids remembered for deduplication.
     static let seenLimit = 500
@@ -184,6 +189,16 @@ public final class HephonAgentController: ObservableObject {
     /// load. Both are ignored when the retailer switched app changes off in Configure.
     /// `starters` and `restrictions` are sent the same way as `text` (see `setStarters` and
     /// `setRestrictions`).
+    ///
+    /// `debug` logs what the chat does, for finding where a tap or a message stops: page loads
+    /// and load errors, the chat shown and hidden, every bridge message both ways (its type and
+    /// id), each of your callbacks as it is called, and the page's own trace (sent as `log`
+    /// messages): each press and click and what was under it, every request with its status and
+    /// time, chat turns, the basket, checkout and uncaught errors. The web view is also
+    /// inspectable in Safari's Web Inspector (iOS 16.4+). Lines go to `onLog`, or to the system
+    /// log without one (subsystem `ai.hephon.commerce`, category `HephonCommerce`). Tokens,
+    /// codes and message text are never logged. Leave it off in release builds unless you are
+    /// tracing a problem.
     public init(
         host: URL = HephonAgentController.defaultHost,
         organization: String,
@@ -194,13 +209,20 @@ public final class HephonAgentController: ObservableObject {
         text: HephonText? = nil,
         starters: [HephonStarter]? = nil,
         restrictions: [HephonRestriction]? = nil,
-        customDomains: [URL] = []
+        customDomains: [URL] = [],
+        debug: Bool = false,
+        onLog: (@MainActor (String) -> Void)? = nil
     ) {
         let url = Self.chatURL(
             host: host, organization: organization, launch: launch, store: store, locale: locale,
-            appearance: appearance
+            appearance: appearance, debug: debug
         )
         self.url = url
+        self.debug = debug
+        self.onLog = onLog
+        if debug {
+            isInspectable = true
+        }
         identified = launch != nil
         chatPath = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath ?? ""
         allowedOrigins = Set(([host] + customDomains).compactMap(HephonNavigation.origin(of:)))
@@ -220,6 +242,7 @@ public final class HephonAgentController: ObservableObject {
     /// `<host>/c/<organization>?…&embed=ios&sdk=<version>`. A store only goes with an anonymous
     /// launch: a token or code already names it. Each override of `appearance` that is set is a
     /// parameter of its own name (`scheme=dark&primaryColor=%231E1EF2&showBasket=false`).
+    /// `debug` adds `debug=1`: the page then sends its trace as `log` messages.
     public nonisolated static func chatURL(
         host: URL,
         organization: String,
@@ -227,6 +250,7 @@ public final class HephonAgentController: ObservableObject {
         store: String? = nil,
         locale: String? = nil,
         appearance: HephonAppearance? = nil,
+        debug: Bool = false,
         embed: String = "ios",
         sdk: String = HephonCommerceSDK.version
     ) -> URL {
@@ -242,7 +266,7 @@ public final class HephonAgentController: ObservableObject {
         case nil: [("store", store)]
         }
         let overrides: [(String, String?)] = (appearance?.pairs ?? []).map { ($0, $1.query) }
-        parts.percentEncodedQuery = (query + [("embed", embed), ("sdk", sdk), ("locale", locale)] + overrides)
+        parts.percentEncodedQuery = (query + [("embed", embed), ("sdk", sdk), ("locale", locale), ("debug", debug ? "1" : nil)] + overrides)
             .compactMap { key, value in value.map { "\(key)=\(queryValue($0))" } }
             .joined(separator: "&")
         parts.fragment = nil
@@ -380,6 +404,7 @@ public final class HephonAgentController: ObservableObject {
             return
         }
         if !bridgeReady {
+            trace("-> \(message.type) \(message.id) held until the chat is ready")
             outbox.append(message)
             return
         }
@@ -457,6 +482,7 @@ public final class HephonAgentController: ObservableObject {
         guard !shown else {
             return
         }
+        trace("shown")
         shown = true
         wasShown = true
         shownAt = at
@@ -475,6 +501,7 @@ public final class HephonAgentController: ObservableObject {
         guard !disposed, shown, presenter === view else {
             return
         }
+        trace("hidden")
         shown = false
         shownAt = nil
         // A page that cannot be told it is hidden would keep a call running, and a chat that
@@ -518,7 +545,11 @@ public final class HephonAgentController: ObservableObject {
             return
         }
         guard seen.insert(envelope.id).inserted else {
+            trace("<- \(envelope.event.name) \(envelope.id) again: ignored")
             return
+        }
+        if case .log = envelope.event {} else {
+            trace("<- \(envelope.event.name) \(envelope.id)")
         }
         seenOrder.append(envelope.id)
         if seenOrder.count > Self.seenLimit {
@@ -533,6 +564,7 @@ public final class HephonAgentController: ObservableObject {
             }
         case let .timing(timing): onTiming?(timing)
         case let .state(state): onStateChange?(state)
+        case let .log(level, message): trace("page \(level): \(message)")
         case let .message(message): handle(message)
         }
     }
@@ -583,15 +615,23 @@ public final class HephonAgentController: ObservableObject {
             case .removed: onItemRemoved?(event)
             }
         case let .cartCleared(cleared): onCartCleared?(cleared)
-        case let .checkout(cart): onCheckout?(cart)
+        case let .checkout(cart):
+            trace(
+                onCheckout == nil
+                    ? "checkout with \(cart.items.count) items, but no onCheckout is set"
+                    : "onCheckout: \(cart.items.count) items, total \(cart.total) \(cart.currency), conversation \(cart.conversationId)"
+            )
+            onCheckout?(cart)
         case let .handoff(handoff): onHandoff?(handoff)
         case let .openProduct(product): onOpenProduct?(product)
         case .sessionExpired: renewSession()
         case .close:
+            let view = shown ? presenter as? HephonChatPresenter : nil
+            trace(onClose == nil && view == nil ? "close, but nothing to close" : "close")
             if let onClose {
                 onClose()
-            } else if shown {
-                (presenter as? HephonChatPresenter)?.closeChat()
+            } else {
+                view?.closeChat()
             }
         case .resize: break
         }
@@ -606,17 +646,23 @@ public final class HephonAgentController: ObservableObject {
         return decision == .allow
     }
 
-    /// A new document has a new bridge: hold messages until it says ready.
-    func didStartLoading() {
-        guard !disposed, driver != nil else {
+    /// A new document has a new bridge: hold messages until it says ready. `url` is the page
+    /// that started, for the debug trace.
+    func didStartLoading(_ url: URL? = nil) {
+        guard !disposed, let driver else {
             return
         }
+        trace("page started \(Self.redacted(url ?? driver.url))")
         bridgeReady = false
         pageState = .loading
     }
 
-    func didFinishLoading() {
-        if !disposed, pageState == .loading {
+    func didFinishLoading(_ url: URL? = nil) {
+        guard !disposed else {
+            return
+        }
+        trace("page finished \(Self.redacted(url ?? driver?.url))")
+        if pageState == .loading {
             pageState = .loaded
         }
     }
@@ -625,6 +671,11 @@ public final class HephonAgentController: ObservableObject {
     func didFailLoading(_ error: any Error) {
         let error = error as NSError
         let failing = error.userInfo[NSURLErrorFailingURLErrorKey] as? URL
+        if !disposed {
+            trace(
+                "load error \(error.code) \(error.domain) \(error.localizedDescription) (main frame: true, \(Self.redacted(failing)))"
+            )
+        }
         let ours = failing.map { allowedOrigins.contains(HephonNavigation.origin(of: $0) ?? "") } ?? true
         guard !disposed, ours, !(error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled) else {
             return
@@ -689,18 +740,18 @@ public final class HephonAgentController: ObservableObject {
         pageState = .loading
         guard launched else {
             launched = true
-            driver?.load(base)
+            open(base)
             return
         }
         // The first token or code is spent once the page said ready.
         let plain = ready.map { HephonNavigation.relaunchURL(base, store: $0.storeId) } ?? base
         guard identified, !hasSession else {
-            driver?.load(plain)
+            open(plain)
             return
         }
         guard onSessionExpired != nil else {
             warnNoToken()
-            driver?.load(plain)
+            open(plain)
             return
         }
         let request = tokenRequest(expired: false)
@@ -714,7 +765,7 @@ public final class HephonAgentController: ObservableObject {
             if token == nil {
                 warnNoToken()
             }
-            driver?.load(token.map { HephonNavigation.relaunchURL(self.url, launchToken: $0) } ?? plain)
+            open(token.map { HephonNavigation.relaunchURL(self.url, launchToken: $0) } ?? plain)
         }
     }
 
@@ -734,6 +785,7 @@ public final class HephonAgentController: ObservableObject {
         guard !disposed, !shown, driver != nil else {
             return
         }
+        trace("released: the next show or preload() loads the chat again")
         self.unload(blank: unload)
         driver = nil
         lostPage()
@@ -804,6 +856,7 @@ public final class HephonAgentController: ObservableObject {
     /// In order, and only to the chat: a page the web view strayed to never gets host messages,
     /// and neither does the next web view.
     private func deliver(_ message: HostMessage) {
+        trace("-> \(message.type) \(message.id)")
         let previous = delivery
         let target = driver
         delivery = Task { [weak self] in
@@ -820,6 +873,41 @@ public final class HephonAgentController: ObservableObject {
                 Self.log.error("Could not deliver \(message.type): \(error.localizedDescription)")
             }
         }
+    }
+
+    /// Hands the chat's web view `url`, traced.
+    private func open(_ url: URL) {
+        trace("load \(Self.redacted(url))")
+        driver?.load(url)
+    }
+
+    /// One `debug` line, to `onLog` or the system log. Nothing without `debug`.
+    private func trace(_ line: String) {
+        guard debug else {
+            return
+        }
+        if let onLog {
+            onLog(line)
+        } else {
+            Self.log.info("\(line, privacy: .public)")
+        }
+    }
+
+    /// `url` without its launch token or code: a log is no place for either.
+    nonisolated static func redacted(_ url: URL?) -> String {
+        guard let url else {
+            return ""
+        }
+        guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let items = parts.queryItems,
+              items.contains(where: { $0.name == "lt" || $0.name == "code" })
+        else {
+            return url.absoluteString
+        }
+        parts.queryItems = items.map {
+            $0.name == "lt" || $0.name == "code" ? URLQueryItem(name: $0.name, value: "\u{2026}") : $0
+        }
+        return parts.string ?? ""
     }
 
     /// The session ended in the page: launch it again in place.

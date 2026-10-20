@@ -1,0 +1,63 @@
+{
+	"$comment": "Since SDK 2.3.0: debug mode. An SDK built with `debug: true` opens the chat with `debug=1` and prints each `log` message the page sends (level and message) in the app's log, next to its own trace. A `log` carries a line of the page's trace: never a token or what the shopper wrote. Without `debug=1` the page sends none, and an SDK before 2.3.0 drops it.",
+	"chatUrl": {
+		"param": "debug",
+		"value": "1"
+	},
+	"pageToHost": [
+		{
+			"v": 1,
+			"id": "d0e1b2c3-0000-4000-8000-000000000001",
+			"type": "log",
+			"ts": 1791374430000,
+			"data": {
+				"level": "info",
+				"message": "press (touch) button \"Check out\" at 186,812"
+			}
+		},
+		{
+			"v": 1,
+			"id": "d0e1b2c3-0000-4000-8000-000000000002",
+			"type": "log",
+			"ts": 1791374431000,
+			"data": {
+				"level": "warn",
+				"message": "PUT /api/public/adcoop/conversations/conv-1/basket: 409 in 88 ms"
+			}
+		},
+		{
+			"v": 1,
+			"id": "d0e1b2c3-0000-4000-8000-000000000003",
+			"type": "log",
+			"ts": 1791374432000,
+			"data": {
+				"level": "error",
+				"message": "uncaught: Cannot read properties of undefined"
+			}
+		}
+	],
+	"hostToPage": [],
+	"rejected": [
+		{
+			"$comment": "Unknown level",
+			"v": 1,
+			"id": "d0e1b2c3-0000-4000-8000-000000000010",
+			"type": "log",
+			"ts": 1791374433000,
+			"data": {
+				"level": "debug",
+				"message": "x"
+			}
+		},
+		{
+			"$comment": "No message",
+			"v": 1,
+			"id": "d0e1b2c3-0000-4000-8000-000000000011",
+			"type": "log",
+			"ts": 1791374434000,
+			"data": {
+				"level": "info"
+			}
+		}
+	]
+}

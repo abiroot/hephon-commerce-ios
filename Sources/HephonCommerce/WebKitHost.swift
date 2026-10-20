@@ -93,12 +93,12 @@ final class WebKitHost: NSObject, WebViewDriving, WKNavigationDelegate, WKUIDele
         decisionHandler(controller.navigate(to: url, isMainFrame: isMainFrame) ? .allow : .cancel)
     }
 
-    func webView(_: WKWebView, didStartProvisionalNavigation _: WKNavigation!) {
-        controller?.didStartLoading()
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation _: WKNavigation!) {
+        controller?.didStartLoading(webView.url)
     }
 
-    func webView(_: WKWebView, didFinish _: WKNavigation!) {
-        controller?.didFinishLoading()
+    func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
+        controller?.didFinishLoading(webView.url)
     }
 
     func webView(_: WKWebView, didFailProvisionalNavigation _: WKNavigation!, withError error: any Error) {

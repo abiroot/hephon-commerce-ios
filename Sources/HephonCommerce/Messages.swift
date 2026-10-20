@@ -202,6 +202,40 @@ enum PageEvent: Sendable, Equatable {
     case timing(HephonOpenTiming)
     /// What the chat is doing changed. Since 2.2.0.
     case state(HephonChatState)
+    /// One line of the page's trace, sent only when the controller has `debug` on. `level` is
+    /// `info`, `warn` or `error`. Since 2.3.0.
+    case log(level: String, message: String)
+
+    /// The levels a `log` may have.
+    static let logLevels: Set<String> = ["info", "warn", "error"]
+
+    /// What the debug trace calls this message: its bridge type, the same in every Hephon SDK
+    /// and in the `->` lines, so traces from two apps read alike.
+    var name: String {
+        switch self {
+        case let .message(message):
+            switch message {
+            case .ready: "ready"
+            case let .cartItem(change, _):
+                switch change {
+                case .added: "cart.item_added"
+                case .updated: "cart.item_updated"
+                case .removed: "cart.item_removed"
+                }
+            case .cartCleared: "cart.cleared"
+            case .checkout: "checkout"
+            case .handoff: "handoff"
+            case .openProduct: "open_product"
+            case .sessionExpired: "session.expired"
+            case .resize: "resize"
+            case .close: "close"
+            }
+        case .painted: "painted"
+        case .timing: "timing"
+        case .state: "state"
+        case .log: "log"
+        }
+    }
 
     struct Envelope: Sendable, Equatable {
         let id: String
@@ -242,6 +276,10 @@ enum PageEvent: Sendable, Equatable {
             event = data(HephonOpenTiming.self).flatMap { ($0.open ?? 0) >= 0 ? .timing($0) : nil }
         case "state":
             event = data(HephonChatState.self).flatMap { $0.itemCount >= 0 ? .state($0) : nil }
+        case "log":
+            event = data(LogLine.self).flatMap {
+                logLevels.contains($0.level) ? .log(level: $0.level, message: $0.message) : nil
+            }
         default: break
         }
         return (event ?? message.map(PageEvent.message)).map {
@@ -269,6 +307,11 @@ private struct Payload<T: Decodable>: Decodable {
 
 private struct Resize: Decodable {
     let height: Double
+}
+
+private struct LogLine: Decodable {
+    let level: String
+    let message: String
 }
 
 /// Accepts any JSON object and nothing else.

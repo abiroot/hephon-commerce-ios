@@ -1,3 +1,22 @@
+## 2.3.0
+
+Debug mode, for finding where a tap or a message stops. Nothing that worked in 2.2.0 changed:
+updating needs no code change.
+
+- `HephonAgentController(..., debug: true)` logs what the chat does: page loads and load
+  errors, the chat shown, hidden and released, every bridge message both ways (its type and
+  id, `-> basket.open <id>`, `<- checkout <id>`), each of your callbacks as it is
+  called (`onCheckout: 2 items, total 21.25 USD, conversation <id>`), and the page's own
+  trace: each press and click and what was under it, every request with its status and time,
+  chat turns, the basket, checkout and uncaught errors (`page info: ...`).
+- Lines go to `onLog` (an `init` argument and a property, like the other callbacks), or to the
+  system log without it (subsystem `ai.hephon.commerce`, category `HephonCommerce`, level
+  info). Nothing is logged with `debug` off, the default.
+- The chat URL gets `debug=1`, and the web view is inspectable in Safari's Web Inspector
+  (iOS 16.4+) in any build.
+- Never a launch token or code (logged URLs show `lt=…` and `code=…`), and never what the
+  shopper wrote.
+
 ## 2.2.0
 
 Your app can now steer the open chat, follow what it is doing, and open it as a full page.

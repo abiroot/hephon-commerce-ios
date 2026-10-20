@@ -22,14 +22,14 @@ iOS 15 or later, Xcode 16 or later. No dependencies.
 https://github.com/abiroot/hephon-commerce-ios.git
 ```
 
-set Dependency Rule to **Up to Next Major Version** from `2.2.0`, and add `HephonCommerce`
+set Dependency Rule to **Up to Next Major Version** from `2.3.0`, and add `HephonCommerce`
 to your app target.
 
 **Package.swift:**
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/abiroot/hephon-commerce-ios.git", from: "2.2.0"),
+    .package(url: "https://github.com/abiroot/hephon-commerce-ios.git", from: "2.3.0"),
 ],
 targets: [
     .target(name: "YourApp", dependencies: [
@@ -46,7 +46,7 @@ The retailer's **Install** screen in Hephon shows the same steps with the latest
 - Package.swift: `swift package update`.
 
 Both stay within your major version. To cross one, read CHANGELOG.md (also on the Install
-screen), then raise the rule's lower bound (`from: "2.2.0"`). The Install screen shows which
+screen), then raise the rule's lower bound (`from: "2.3.0"`). The Install screen shows which
 version your app runs and says when an update is out.
 
 ### Voice (optional)
@@ -217,6 +217,7 @@ All run on the main actor.
 | `onTiming` | the chat was shown and is usable | `open` in ms, `preloaded` |
 | `onStateChange` | the chat's screen, its busy state or its basket changed (since 2.2.0) | `HephonChatState`: `view` (`.welcome`, `.conversation`), `busy`, `basketOpen`, `itemCount`, `conversationId` |
 | `onClose` | the shopper tapped the chat's back arrow (`showBack`) | nothing. Without it, the view closes itself (see Open it as a full page) |
+| `onLog` | a `debug` line (since 2.3.0, see Debugging) | the line, as text |
 
 Events are delivered **at least once**: the package drops repeats by message id, and a cart
 change's id is the same as the signed webhook's `webhook-id`, so a server that also takes
@@ -495,7 +496,40 @@ The Install screen has the signing code for Node, and the Flutter package's READ
 - The microphone is granted only for a microphone-only request from an allowed origin and
   only when `onMicrophonePermission` returns true. Camera requests are refused; WebKit's own
   prompt never shows.
-- Web Inspector can attach in debug builds (`isInspectable`, iOS 16.4+).
+- Web Inspector can attach in debug builds (`isInspectable`, iOS 16.4+), and in any build
+  with `debug: true`.
+
+## Debugging
+
+When a tap or a message seems to go nowhere, open the chat with `debug: true` (since 2.3.0):
+
+```swift
+let assistant = HephonAgentController(
+    organization: "noknok",
+    launch: .token(token),
+    debug: true,
+    onLog: { line in print("hephon: \(line)") }
+)
+```
+
+It logs page loads and load errors, the chat shown and hidden, every bridge message both
+ways (type and id), each of your callbacks as it is called, and the page's own trace (each
+press and what was under it, requests with their status and time, chat turns, the basket,
+checkout, uncaught errors):
+
+```
+load https://commerce.hephon.ai/c/noknok?lt=%E2%80%A6&embed=ios&sdk=2.3.0&debug=1
+-> basket.open 6f1c… held until the chat is ready
+<- ready a0c6…
+page info: press (touch) button "Check out" at 186,812
+<- checkout a0c6…
+onCheckout: 2 items, total 21.25 USD, conversation cm1…
+```
+
+Without `onLog` the lines go to the system log (subsystem `ai.hephon.commerce`, category
+`HephonCommerce`), visible in Xcode's console and Console.app. The web view also opens in
+Safari's Web Inspector (Develop menu, iOS 16.4+). Launch tokens, codes and what the shopper
+wrote are never logged. Leave it off in release builds unless you are tracing a problem.
 
 ## Test it
 
@@ -506,7 +540,7 @@ The Install screen has the signing code for Node, and the Flutter package's READ
   lists every event with its open time. Open `Example/HephonCommerceExample.xcodeproj`, run
   it on a simulator, and paste a test code.
 - `xcodebuild test -scheme HephonCommerce -destination 'platform=iOS Simulator,name=iPhone 17'`
-  runs the contract tests (the bridge, host, appearance and control fixtures every Hephon SDK shares) and the
+  runs the contract tests (the bridge, host, appearance, control and debug fixtures every Hephon SDK shares) and the
   controller tests.
 - On an iOS 18.4 to 18.x simulator, an app whose deployment target is older than the
   simulator's iOS stops at launch with `Library not loaded: /usr/lib/swift/libswiftWebKit.dylib`.
